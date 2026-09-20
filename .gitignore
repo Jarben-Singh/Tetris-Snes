@@ -1,0 +1,17 @@
+# Build output
+/build/
+*.sfc
+*.smc
+*.o
+
+# WLA-DX / wlalink temp and debug files
+*.sym
+*.map
+*.lst
+*.def
+*.tmp
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
