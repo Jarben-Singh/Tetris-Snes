@@ -1,6 +1,6 @@
 # SNES Tetris
 
-Implementación de Tetris para Super Nintendo (SNES) escrita en ensamblador 65816 puro, sin frameworks de alto nivel.
+Implementación de Tetris escrita en ensamblador 65816 puro, sin frameworks de alto nivel.
 
 ## Descripción
 
