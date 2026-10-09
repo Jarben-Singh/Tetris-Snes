@@ -25,15 +25,6 @@ docs/       Documentación de diseño y roadmap
 tests/      Pruebas
 ```
 
-## Cómo compilar
-
-> Pendiente: se documentará el proceso de compilación con WLA-DX una vez esté listo el Makefile.
-
-```
-# Placeholder
-make
-```
-
 ### Configuración por plataforma (tareas de VS Code)
 
 **Windows:** usa los binarios incluidos en `tools/` y `tools/run-mesen.ps1`. Define `MESEN_PATH` (`setx MESEN_PATH "C:\ruta\a\Mesen.exe"`) o crea `tools/mesen.path`.
