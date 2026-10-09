@@ -16,6 +16,13 @@ param(
 $mesen = $env:MESEN_PATH
 
 if (-not $mesen) {
+    $localFile = Join-Path $PSScriptRoot "mesen.path"
+    if (Test-Path -LiteralPath $localFile) {
+        $mesen = (Get-Content -LiteralPath $localFile -TotalCount 1).Trim().Trim('"')
+    }
+}
+
+if (-not $mesen) {
     $cmd = Get-Command Mesen.exe -ErrorAction SilentlyContinue
     if ($cmd) { $mesen = $cmd.Source }
 }
@@ -30,6 +37,7 @@ if (-not $mesen -or -not (Test-Path -LiteralPath $mesen)) {
     }
     Write-Host ""
     Write-Host '    setx MESEN_PATH "C:\ruta\a\Mesen.exe"'
+    Write-Host "o crea el archivo tools\mesen.path con la ruta en una sola línea."
     Write-Host ""
     Write-Host "Después cierra y vuelve a abrir VS Code para que tome el cambio."
     exit 1
