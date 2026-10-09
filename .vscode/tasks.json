@@ -4,7 +4,8 @@
         {
             "label": "Ensamblar (wla-65816)",
             "type": "process",
-            "command": "${workspaceFolder}/tools/wla-65816.exe",
+            "command": "wla-65816",
+            "windows": { "command": "${workspaceFolder}/tools/wla-65816.exe" },
             "args": ["-o", "../build/main.o", "main.asm"],
             "options": { "cwd": "${workspaceFolder}/src" },
             "presentation": { "reveal": "always", "clear": true },
@@ -28,7 +29,8 @@
         {
             "label": "Compilar ROM",
             "type": "process",
-            "command": "${workspaceFolder}/tools/wlalink.exe",
+            "command": "wlalink",
+            "windows": { "command": "${workspaceFolder}/tools/wlalink.exe" },
             "args": ["-S", "-r", "../linkfile", "../build/main.sfc"],
             "options": { "cwd": "${workspaceFolder}/src" },
             "dependsOn": "Ensamblar (wla-65816)",
@@ -39,13 +41,20 @@
         {
             "label": "Compilar y ejecutar en Mesen",
             "type": "process",
-            "command": "powershell.exe",
+            "command": "bash",
             "args": [
-                "-NoProfile",
-                "-ExecutionPolicy", "Bypass",
-                "-File", "${workspaceFolder}/tools/run-mesen.ps1",
-                "-Rom", "${workspaceFolder}/build/main.sfc"
+                "${workspaceFolder}/tools/run-mesen.sh",
+                "${workspaceFolder}/build/main.sfc"
             ],
+            "windows": {
+                "command": "powershell.exe",
+                "args": [
+                    "-NoProfile",
+                    "-ExecutionPolicy", "Bypass",
+                    "-File", "${workspaceFolder}/tools/run-mesen.ps1",
+                    "-Rom", "${workspaceFolder}/build/main.sfc"
+                ]
+            },
             "dependsOn": "Compilar ROM",
             "presentation": { "reveal": "always" },
             "problemMatcher": [],
