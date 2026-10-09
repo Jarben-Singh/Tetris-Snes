@@ -15,3 +15,6 @@
 .DS_Store
 Thumbs.db
 *.swp
+
+# Rutas locales de cada desarrollador
+/tools/mesen.path

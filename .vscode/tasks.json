@@ -1,0 +1,55 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Ensamblar (wla-65816)",
+            "type": "process",
+            "command": "${workspaceFolder}/tools/wla-65816.exe",
+            "args": ["-o", "../build/main.o", "main.asm"],
+            "options": { "cwd": "${workspaceFolder}/src" },
+            "presentation": { "reveal": "always", "clear": true },
+            "problemMatcher": {
+                "owner": "wla-dx",
+                "fileLocation": ["relative", "${workspaceFolder}/src"],
+                "severity": "error",
+                "pattern": [
+                    {
+                        "regexp": "^[A-Z_]*(?:ERROR|WARNING):\\s*(.*)$",
+                        "message": 1
+                    },
+                    {
+                        "regexp": "^\\s*at\\s+(.+):(\\d+)\\s*$",
+                        "file": 1,
+                        "line": 2
+                    }
+                ]
+            }
+        },
+        {
+            "label": "Compilar ROM",
+            "type": "process",
+            "command": "${workspaceFolder}/tools/wlalink.exe",
+            "args": ["-S", "-r", "../linkfile", "../build/main.sfc"],
+            "options": { "cwd": "${workspaceFolder}/src" },
+            "dependsOn": "Ensamblar (wla-65816)",
+            "presentation": { "reveal": "always" },
+            "problemMatcher": [],
+            "group": { "kind": "build", "isDefault": true }
+        },
+        {
+            "label": "Compilar y ejecutar en Mesen",
+            "type": "process",
+            "command": "powershell.exe",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy", "Bypass",
+                "-File", "${workspaceFolder}/tools/run-mesen.ps1",
+                "-Rom", "${workspaceFolder}/build/main.sfc"
+            ],
+            "dependsOn": "Compilar ROM",
+            "presentation": { "reveal": "always" },
+            "problemMatcher": [],
+            "group": "test"
+        }
+    ]
+}
