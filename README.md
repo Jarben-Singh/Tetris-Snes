@@ -34,6 +34,17 @@ tests/      Pruebas
 make
 ```
 
+### Configuración por plataforma (tareas de VS Code)
+
+**Windows:** usa los binarios incluidos en `tools/` y `tools/run-mesen.ps1`. Define `MESEN_PATH` (`setx MESEN_PATH "C:\ruta\a\Mesen.exe"`) o crea `tools/mesen.path`.
+
+**macOS / Linux:**
+
+1. Instala WLA-DX: `brew install wla-dx` (deben quedar `wla-65816` y `wlalink` en el PATH).
+2. Instala Mesen (por defecto se busca en `/Applications/Mesen.app`) o define la ruta:
+   `export MESEN_PATH="/Applications/Mesen.app"` en `~/.zshrc`, o escríbela en `tools/mesen.path`.
+3. Reinicia VS Code y ejecuta las tareas igual que en Windows (`Ctrl/Cmd+Shift+B` para compilar).
+
 ## Licencia
 
 Ver [LICENSE](LICENSE).
