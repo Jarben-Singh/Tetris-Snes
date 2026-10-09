@@ -1,1 +1,3 @@
-; Linkfile placeholder para wlalink: definirá el mapa de bancos/segmentos y el orden de los .obj a enlazar.
+; Linkfile para wlalink: define el orden de los .o a enlazar (rutas relativas a src/).
+[objects]
+../build/main.o
