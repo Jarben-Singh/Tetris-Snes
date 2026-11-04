@@ -7,6 +7,11 @@
 
 .INCLUDE "header.asm"
 
+; --- Infraestructura (Manuel) -------------------------------
+.INCLUDE "../include/hardware.inc"
+.INCLUDE "../include/ram_map.inc"
+.INCLUDE "../include/macros.inc"
+
 .BANK 0 SLOT 0
 .ORG 0
 .SECTION "MainCode"
@@ -22,7 +27,7 @@ EmptyHandler:
 ; que la interrupción no rompe nada
 ; ------------------------------------------------------------
 VBlank:
-    RTI
+    JMP VBlankHandler
 
 ; ------------------------------------------------------------
 ; Punto de entrada
@@ -300,10 +305,14 @@ BuildBlockLoop:
     STA $2100
 
     ; --------------------------------------------------------
-    ; Habilitar NMI (VBlank) para futuro uso
+    ; Infraestructura: input + temporizacion  (Manuel)
     ; --------------------------------------------------------
-    LDA #$80
-    STA $4200
+    JSR InputInit
+    JSR TimingInit
+
+    ; Habilitar NMI (bit7) + lectura automatica del control (bit0)
+    LDA #$81
+    STA NMITIMEN
 
     CLI                 ; habilitar interrupciones
 
@@ -334,6 +343,15 @@ PieceOriginY:
 
 PieceTileTable:
 .db 0, 1, 2, 3, 4, 5, 6
+
+; ------------------------------------------------------------
+; Modulos de infraestructura (Manuel)
+; ------------------------------------------------------------
+.INCLUDE "core/init.asm"
+.INCLUDE "core/nmi.asm"
+.INCLUDE "core/irq.asm"
+.INCLUDE "engine/timing.asm"
+.INCLUDE "game/input.asm"
 
 .ENDS
 
