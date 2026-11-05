@@ -45,6 +45,13 @@ Start:
     TXS                 ; inicializar stack pointer
 
     ; --------------------------------------------------------
+    ; La WRAM arranca con basura: si no se limpia, variables
+    ; como OAM_DIRTY tienen valores aleatorios y el NMI manda
+    ; un buffer de OAM lleno de basura a la pantalla.
+    ; --------------------------------------------------------
+    JSR ClearWRAM
+
+    ; --------------------------------------------------------
     ; Apagar la pantalla mientras inicializamos
     ; --------------------------------------------------------
     SEP #$20
@@ -197,40 +204,11 @@ ClearCGRAMLoop:
     STA $2101
 
     ; --------------------------------------------------------
-    ; Limpiar toda la tabla OAM antes de dibujar nuestro sprite
-    ; real, moviendo los 128 sprites fuera de la pantalla
-    ; visible (Y = $F0) para que no aparezca basura.
+    ; Esconder los 128 sprites en el buffer espejo de OAM.
+    ; Todo el dibujo de sprites pasa por OAM_BUFFER (con
+    ; OamSetSprite) y el NMI lo manda a la OAM real.
     ; --------------------------------------------------------
-    LDA #$00
-    STA $2102
-    STA $2103           ; OAMADD = 0
-
-    REP #$20
-    .ACCU 16
-    LDX #$0080          ; 128 sprites
-ClearOAMLoop:
-    SEP #$20
-    .ACCU 8
-    LDA #$00
-    STA $2104           ; X = 0
-    LDA #$F0
-    STA $2104           ; Y = 240 (fuera de pantalla)
-    LDA #$00
-    STA $2104           ; tile = 0
-    STA $2104           ; atributos = 0
-    REP #$20
-    .ACCU 16
-    DEX
-    BNE ClearOAMLoop
-
-    SEP #$20
-    .ACCU 8
-    LDX #$20            ; 32 bytes de la tabla alta de OAM
-ClearOAMHighLoop:
-    LDA #$00
-    STA $2104
-    DEX
-    BNE ClearOAMHighLoop
+    JSR OamBufferInit
 
     ; --------------------------------------------------------
     ; Construir las 7 piezas (I,O,T,S,Z,J,L) con 4 sprites de
@@ -238,20 +216,26 @@ ClearOAMHighLoop:
     ;   X = OrigenX[pieza] + dx*8      Y = OrigenY[pieza] + dy*8
     ; con (dx,dy) tomado de PieceShapes. Solo prueba visual: sin
     ; movimiento, rotación ni lógica de juego.
-    ; Temporales en direct page: $00 = pieza, $01 = bloques restantes
+    ; Temporales en direct page: $00 = pieza, $01 = bloques
+    ; restantes, $08 = sprite actual ($02-$06 = entradas de
+    ; OamSetSprite). X/Y en 16 bits, como pide OamSetSprite.
+    ; Empieza en el sprite 4: los sprites 0-3 son de la pieza
+    ; activa (ACTIVE_PIECE_SPRITE_BASE en game/piece.asm).
     ; --------------------------------------------------------
-    LDA #$00
-    STA $2102
-    STA $2103           ; OAMADD = 0 (empezamos en el sprite 0)
-
-    SEP #$10
-    .INDEX 8
     STZ $00             ; pieza actual = 0
-    LDX #$00            ; X = índice en PieceShapes (2 bytes por bloque)
+    LDA #$04
+    STA $08             ; sprite actual = 4
+    LDX #$0000          ; X = índice en PieceShapes (2 bytes por bloque)
 BuildPieceLoop:
     LDA #$04
     STA $01             ; 4 bloques por pieza
-    LDY $00             ; Y = pieza actual
+    REP #$20
+    .ACCU 16
+    LDA $00
+    AND #$00FF
+    TAY                 ; Y = pieza actual
+    SEP #$20
+    .ACCU 8
 BuildBlockLoop:
     LDA.w PieceShapes,X     ; dx (en celdas)
     ASL
@@ -259,7 +243,7 @@ BuildBlockLoop:
     ASL                     ; dx * 8 píxeles
     CLC
     ADC.w PieceOriginX,Y
-    STA $2104               ; X del sprite
+    STA $03                 ; X del sprite
 
     LDA.w PieceShapes+1,X   ; dy (en celdas)
     ASL
@@ -267,12 +251,16 @@ BuildBlockLoop:
     ASL
     CLC
     ADC.w PieceOriginY,Y
-    STA $2104               ; Y del sprite
+    STA $04                 ; Y del sprite
 
     LDA.w PieceTileTable,Y
-    STA $2104               ; tile (color) de la pieza
-    LDA #$00
-    STA $2104               ; atributos: paleta 0, sin flip/prioridad
+    STA $05                 ; tile (color) de la pieza
+    STZ $06                 ; atributos: paleta 0, sin flip/prioridad
+
+    LDA $08
+    STA $02                 ; número de sprite
+    JSR OamSetSprite
+    INC $08
 
     INX
     INX
@@ -284,9 +272,13 @@ BuildBlockLoop:
     CMP #$07
     BNE BuildPieceLoop
 
-    REP #$10
-    .INDEX 16
-    ; La tabla alta de OAM quedó en 0 (tamaño chico = 8x8).
+    ; --------------------------------------------------------
+    ; Mandar el buffer a la OAM ya, mientras la pantalla sigue
+    ; apagada (forced blank), para que el primer frame no
+    ; muestre lo que haya quedado en la OAM real.
+    ; --------------------------------------------------------
+    JSR OamFlush
+    STZ OAM_DIRTY
 
     ; --------------------------------------------------------
     ; Configurar modo de fondo simple (modo 1) y activar
@@ -310,14 +302,31 @@ BuildBlockLoop:
     JSR InputInit
     JSR TimingInit
 
+    ; --------------------------------------------------------
+    ; Logica de piezas
+    ; --------------------------------------------------------
+    JSR ActivePieceInit
+
     ; Habilitar NMI (bit7) + lectura automatica del control (bit0)
     LDA #$81
     STA NMITIMEN
 
     CLI                 ; habilitar interrupciones
 
+    ; --------------------------------------------------------
+    ; Bucle principal: una vuelta por frame.
+    ; El NMI ya leyó el control; aquí se actualiza la pieza
+    ; y se dibuja en el buffer de OAM (el siguiente NMI lo
+    ; manda a la pantalla).
+    ; --------------------------------------------------------
 MainLoop:
-    WAI                 ; esperar interrupción (ahorra ciclos)
+    JSR WaitFrame       ; esperar al siguiente frame
+    JSR ActivePieceUpdate
+    JSR DrawActivePiece
+    SEP #$20            ; DrawActivePiece no restaura P:
+    .ACCU 8             ; deja A en 8 bits y X/Y en 16
+    REP #$10
+    .INDEX 16
     JMP MainLoop
 
 ; ------------------------------------------------------------

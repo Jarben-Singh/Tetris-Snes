@@ -45,7 +45,8 @@ InputInit:
 ; ------------------------------------------------------------
 InputUpdate:
     PHP
-    PHA
+    A16                     ; guardar A siempre en 16 bits: el PLA del
+    PHA                     ; final corre en 16 y debe sacar lo mismo
     PHX
 
     ; --- Esperar a que el hardware termine de leer el control ---

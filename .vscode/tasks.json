@@ -2,9 +2,26 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Crear carpeta build",
+            "type": "process",
+            "command": "mkdir",
+            "args": ["-p", "${workspaceFolder}/build"],
+            "windows": {
+                "command": "powershell.exe",
+                "args": [
+                    "-NoProfile",
+                    "-Command",
+                    "New-Item -ItemType Directory -Force -Path '${workspaceFolder}/build' | Out-Null"
+                ]
+            },
+            "presentation": { "reveal": "silent" },
+            "problemMatcher": []
+        },
+        {
             "label": "Ensamblar (wla-65816)",
             "type": "process",
             "command": "wla-65816",
+            "dependsOn": "Crear carpeta build",
             "windows": { "command": "${workspaceFolder}/tools/wla-65816.exe" },
             "args": ["-o", "../build/main.o", "main.asm"],
             "options": { "cwd": "${workspaceFolder}/src" },

@@ -26,11 +26,15 @@ VBlankHandler:
     ; aparece en un lugar que no tiene nada que ver.
     PHP
     PHB                     ; banco de datos
+
+    ; Guardar A, X, Y siempre en 16 bits: al final se restauran
+    ; en 16 bits, y si aqui se guardaran en 8, el stack quedaria
+    ; desfasado y el RTI regresaria a una direccion basura.
+    AI16
     PHA
     PHX
     PHY
 
-    AI16
     PHD                     ; direct page
     LDA #$0000
     TCD                     ; forzar direct page = 0, por si acaso

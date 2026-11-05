@@ -1,19 +1,8 @@
-;=====Direcciones de memoria RAM para cada proceso=====
-;-----Que tipo de pieza está cayendo-----
-.DEFINE ACTIVE_PIECE_TYPE      $10 
-
-;------Tipo de rotación se está haciendo------
-.DEFINE ACTIVE_PIECE_ROTATION  $11
-
-;-----------Columna del grid-----------
-.DEFINE ACTIVE_PIECE_X         $12
-
-;-------------Fila del grid-------------
-.DEFINE ACTIVE_PIECE_Y         $13
+; Las variables de la pieza activa (ACTIVE_PIECE_*) se definen en include/ram_map.inc
 
 ;=====Tablas de datos: formas de piezas, tablas de rotación, velocidades por nivel=====
 
-: Orden de piezas del juego:
+; Orden de piezas del juego:
 ; Para:
 ;  0 = I
 ;  1 = O

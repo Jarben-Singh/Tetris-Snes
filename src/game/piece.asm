@@ -15,6 +15,124 @@
 .DEFINE ACTIVE_PIECE_SPRITE_BASE 0
 
 
+; Posicion inicial de la pieza activa (en celdas del grid).
+.DEFINE ACTIVE_PIECE_START_X 3
+.DEFINE ACTIVE_PIECE_START_Y 0
+
+; Cantidad de tipos de pieza (I, O, T, S, Z, J, L).
+.DEFINE PIECE_TYPE_COUNT 7
+
+
+; ============================================================
+; ActivePieceInit
+;
+; Deja la pieza activa en su estado inicial:
+; pieza T, rotacion 0, en la posicion de inicio.
+; ============================================================
+
+ActivePieceInit:
+    PHP
+    A8
+
+    LDA #$02                ; T
+    STA ACTIVE_PIECE_TYPE
+    STZ ACTIVE_PIECE_ROTATION
+
+    LDA #ACTIVE_PIECE_START_X
+    STA ACTIVE_PIECE_X
+    LDA #ACTIVE_PIECE_START_Y
+    STA ACTIVE_PIECE_Y
+
+    PLP
+    RTS
+
+
+; ============================================================
+; ActivePieceUpdate
+;
+; Lee los botones recien presionados (PAD1_PRESSED) y
+; actualiza la pieza activa:
+;
+;   A      -> rotar en sentido horario      (rotacion + 1)
+;   B      -> rotar en sentido antihorario  (rotacion - 1)
+;   SELECT -> cambiar a la siguiente pieza (prueba)
+;
+; La rotacion siempre queda entre 0 y 3.
+; Por ahora no revisa colisiones.
+; ============================================================
+
+ActivePieceUpdate:
+    PHP
+
+
+    ; --------------------------------------------------------
+    ; SELECT: siguiente tipo de pieza, rotacion vuelve a 0
+    ; --------------------------------------------------------
+
+    A16
+    LDA PAD1_PRESSED
+    AND #BTN_SELECT
+    BEQ ActivePieceUpdate_CheckA
+
+    A8
+    LDA ACTIVE_PIECE_TYPE
+    INC A
+    CMP #PIECE_TYPE_COUNT
+    BCC ActivePieceUpdate_SetType
+    LDA #$00                ; despues de L vuelve a I
+
+ActivePieceUpdate_SetType:
+    STA ACTIVE_PIECE_TYPE
+    STZ ACTIVE_PIECE_ROTATION
+
+
+ActivePieceUpdate_CheckA:
+
+    ; --------------------------------------------------------
+    ; A: rotar en sentido horario
+    ; --------------------------------------------------------
+
+    ; Re-afirmar A16: el ensamblador lleva el tamano de A en
+    ; orden de texto, y la rama anterior lo dejo en 8 bits.
+    A16
+    LDA PAD1_PRESSED
+    AND #BTN_A
+    BEQ ActivePieceUpdate_CheckB
+
+    A8
+    INC ACTIVE_PIECE_ROTATION
+    BRA ActivePieceUpdate_Wrap
+
+
+ActivePieceUpdate_CheckB:
+
+    ; --------------------------------------------------------
+    ; B: rotar en sentido antihorario
+    ; --------------------------------------------------------
+
+    A16
+    LDA PAD1_PRESSED
+    AND #BTN_B
+    BEQ ActivePieceUpdate_Done
+
+    A8
+    DEC ACTIVE_PIECE_ROTATION
+
+
+ActivePieceUpdate_Wrap:
+
+    ; 3 + 1 = 4 -> 0   y   0 - 1 = $FF -> 3
+    A8
+    LDA ACTIVE_PIECE_ROTATION
+    AND #$03
+    STA ACTIVE_PIECE_ROTATION
+
+
+ActivePieceUpdate_Done:
+    PLP
+    RTS
+
+
 ; ============================================================
 ; DrawActivePiece
 ;
