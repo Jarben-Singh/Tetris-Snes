@@ -19,6 +19,16 @@
 ;   $0100+    buffers grandes (tablero, OAM)
 ; ============================================================
 
+
+; ---------- $10-$1F : estado de la pieza activa ----------
+
+.DEFINE ACTIVE_PIECE_TYPE      $10
+.DEFINE ACTIVE_PIECE_ROTATION  $11
+.DEFINE ACTIVE_PIECE_X         $12
+.DEFINE ACTIVE_PIECE_Y         $13
+
+
+
 ; ---------- $20-$2F : entrada del control ----------
 ; Cada uno es de 16 bits porque el control devuelve 16 bits.
 .DEFINE PAD1_HELD       $20   ; botones que estan presionados AHORA

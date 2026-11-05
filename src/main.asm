@@ -344,22 +344,37 @@ PieceOriginY:
 PieceTileTable:
 .db 0, 1, 2, 3, 4, 5, 6
 
+
 ; ------------------------------------------------------------
 ; Modulos de infraestructura (Manuel)
 ; ------------------------------------------------------------
+
 .INCLUDE "core/init.asm"
 .INCLUDE "core/nmi.asm"
 .INCLUDE "core/irq.asm"
 .INCLUDE "engine/timing.asm"
 .INCLUDE "game/input.asm"
 
-.ENDS
 
 ; ------------------------------------------------------------
-; Datos gráficos (generados por gfx4snes)
+; Datos y logica de piezas
 ; ------------------------------------------------------------
+
+.INCLUDE "data/tables.asm"
+.INCLUDE "game/piece.asm"
+
+
+.ENDS
+
+
+; ------------------------------------------------------------
+; Datos graficos (generados por gfx4snes)
+; ------------------------------------------------------------
+
 .BANK 1 SLOT 0
 .ORG 0
 .SECTION "GraphicsData"
+
 .INCLUDE "data/TetrisPieces_data.as"
+
 .ENDS
