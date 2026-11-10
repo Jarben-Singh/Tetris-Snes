@@ -4,10 +4,13 @@
 ; ============================================================
 
 
-; Posicion fija donde comienza visualmente el tablero.
+; Posicion en pixeles de la celda (0,0) del tablero.
 ; NO es el tamano del tablero.
-.DEFINE BOARD_ORIGIN_X 8
-.DEFINE BOARD_ORIGIN_Y 16
+; Debe coincidir con el fondo (assets/Background-Tetris1.png):
+; el interior del tablero son los tiles 11-20 en X y 4-23 en Y
+; (10x20 celdas), asi que empieza en (11*8, 4*8).
+.DEFINE BOARD_ORIGIN_X 88
+.DEFINE BOARD_ORIGIN_Y 32
 
 
 ; Los cuatro bloques de la pieza activa usan
@@ -16,8 +19,12 @@
 
 
 ; Posicion inicial de la pieza activa (en celdas del grid).
+; Es la esquina de la caja 4x4 de la pieza: X=3 la centra en
+; las 10 columnas (3 libres a cada lado) e Y=8 en las 20 filas
+; (8 arriba, 8 abajo). Para aparecer arriba, como en el juego
+; normal, usar Y=0.
 .DEFINE ACTIVE_PIECE_START_X 3
-.DEFINE ACTIVE_PIECE_START_Y 0
+.DEFINE ACTIVE_PIECE_START_Y 8
 
 ; Cantidad de tipos de pieza (I, O, T, S, Z, J, L).
 .DEFINE PIECE_TYPE_COUNT 7
@@ -298,10 +305,10 @@ DrawActivePieceLoop:
     ; 7. Atributos del sprite
     ;
     ; Por ahora:
-    ; paleta base, sin flip.
+    ; paleta base, sin flip, prioridad 3 (encima del fondo BG1).
     ; ========================================================
 
-    LDA #$00
+    LDA #OBJ_PRIO_3
     STA $06
 
 

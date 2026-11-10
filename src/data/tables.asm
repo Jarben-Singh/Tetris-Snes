@@ -17,6 +17,9 @@
 
 ; Para cada pieza se pueden hacer 4 rotaciones (4 * 8bytes = 32 bytes)
 
+
+
+
 TetrominoRotations:
 ;====== Pieza I = 0 ======
 ;-------Rotación 0--------
@@ -30,6 +33,9 @@ TetrominoRotations:
 
 ;-------Rotación 3--------
 .db 1,0, 1,1, 1,2, 1,3
+
+
+
 
 
 
