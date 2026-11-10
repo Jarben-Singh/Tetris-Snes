@@ -7,6 +7,8 @@
 # WLA-DX / wlalink temp and debug files
 *.sym
 *.map
+# ...excepto los tilemaps generados por SuperFamiconv (make gfx)
+!/assets/gfx/*.map
 *.lst
 *.def
 *.tmp

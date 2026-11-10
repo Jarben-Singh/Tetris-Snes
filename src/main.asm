@@ -10,6 +10,7 @@
 ; --- Infraestructura (Manuel) -------------------------------
 .INCLUDE "../include/hardware.inc"
 .INCLUDE "../include/ram_map.inc"
+.INCLUDE "../include/vram_map.inc"
 .INCLUDE "../include/macros.inc"
 
 .BANK 0 SLOT 0
@@ -192,6 +193,12 @@ ClearCGRAMLoop:
     STA $420B           ; disparar canal 0 otra vez
 
     ; --------------------------------------------------------
+    ; Fondo del tablero en BG1 (tiles, tilemap, paleta y
+    ; registros de la capa). Ver engine/ppu.asm.
+    ; --------------------------------------------------------
+    JSR LoadBackgroundTetris1
+
+    ; --------------------------------------------------------
     ; OBSEL: tamaño de sprite = 8x8 (chico) / 16x16 (grande).
     ; Como ahora TODOS nuestros diseños son de 8x8, vamos a usar
     ; siempre el tamaño "chico" (size bit = 0 en OAM), así que
@@ -211,68 +218,6 @@ ClearCGRAMLoop:
     JSR OamBufferInit
 
     ; --------------------------------------------------------
-    ; Construir las 7 piezas (I,O,T,S,Z,J,L) con 4 sprites de
-    ; 8x8 cada una (28 sprites en total). Cada bloque se coloca en:
-    ;   X = OrigenX[pieza] + dx*8      Y = OrigenY[pieza] + dy*8
-    ; con (dx,dy) tomado de PieceShapes. Solo prueba visual: sin
-    ; movimiento, rotación ni lógica de juego.
-    ; Temporales en direct page: $00 = pieza, $01 = bloques
-    ; restantes, $08 = sprite actual ($02-$06 = entradas de
-    ; OamSetSprite). X/Y en 16 bits, como pide OamSetSprite.
-    ; Empieza en el sprite 4: los sprites 0-3 son de la pieza
-    ; activa (ACTIVE_PIECE_SPRITE_BASE en game/piece.asm).
-    ; --------------------------------------------------------
-    STZ $00             ; pieza actual = 0
-    LDA #$04
-    STA $08             ; sprite actual = 4
-    LDX #$0000          ; X = índice en PieceShapes (2 bytes por bloque)
-BuildPieceLoop:
-    LDA #$04
-    STA $01             ; 4 bloques por pieza
-    REP #$20
-    .ACCU 16
-    LDA $00
-    AND #$00FF
-    TAY                 ; Y = pieza actual
-    SEP #$20
-    .ACCU 8
-BuildBlockLoop:
-    LDA.w PieceShapes,X     ; dx (en celdas)
-    ASL
-    ASL
-    ASL                     ; dx * 8 píxeles
-    CLC
-    ADC.w PieceOriginX,Y
-    STA $03                 ; X del sprite
-
-    LDA.w PieceShapes+1,X   ; dy (en celdas)
-    ASL
-    ASL
-    ASL
-    CLC
-    ADC.w PieceOriginY,Y
-    STA $04                 ; Y del sprite
-
-    LDA.w PieceTileTable,Y
-    STA $05                 ; tile (color) de la pieza
-    STZ $06                 ; atributos: paleta 0, sin flip/prioridad
-
-    LDA $08
-    STA $02                 ; número de sprite
-    JSR OamSetSprite
-    INC $08
-
-    INX
-    INX
-    DEC $01
-    BNE BuildBlockLoop
-
-    INC $00
-    LDA $00
-    CMP #$07
-    BNE BuildPieceLoop
-
-    ; --------------------------------------------------------
     ; Mandar el buffer a la OAM ya, mientras la pantalla sigue
     ; apagada (forced blank), para que el primer frame no
     ; muestre lo que haya quedado en la OAM real.
@@ -287,8 +232,8 @@ BuildBlockLoop:
     LDA #$01
     STA $2105           ; BGMODE = modo 1
 
-    LDA #$10
-    STA $212C           ; TM: bit4 = activar capa OBJ
+    LDA #$11
+    STA $212C           ; TM: bit4 = capa OBJ, bit0 = capa BG1
 
     ; --------------------------------------------------------
     ; Encender pantalla con brillo máximo
@@ -330,26 +275,11 @@ MainLoop:
     JMP MainLoop
 
 ; ------------------------------------------------------------
-; Tablas de las piezas. Orden: I, O, T, S, Z, J, L
-; PieceShapes: 4 pares (dx,dy) en celdas de 8x8 por pieza.
-; PieceTileTable: tile del bloque de cada pieza. Ajústala si el
+; Tabla de las piezas. Orden: I, O, T, S, Z, J, L
+; PieceTileTable: tile del bloque de cada pieza (la usa
+; DrawActivePiece en game/piece.asm). Ajústala si el
 ; color no coincide con la pieza esperada.
 ; ------------------------------------------------------------
-PieceShapes:
-.db 0,0, 1,0, 2,0, 3,0      ; I
-.db 0,0, 1,0, 0,1, 1,1      ; O
-.db 1,0, 0,1, 1,1, 2,1      ; T
-.db 1,0, 2,0, 0,1, 1,1      ; S
-.db 0,0, 1,0, 1,1, 2,1      ; Z
-.db 0,0, 0,1, 1,1, 2,1      ; J
-.db 2,0, 0,1, 1,1, 2,1      ; L
-
-PieceOriginX:
-.db 16, 72, 112, 160, 40, 96, 152
-
-PieceOriginY:
-.db 64, 64, 64, 64, 128, 128, 128
-
 PieceTileTable:
 .db 0, 1, 2, 3, 4, 5, 6
 
@@ -363,6 +293,13 @@ PieceTileTable:
 .INCLUDE "core/irq.asm"
 .INCLUDE "engine/timing.asm"
 .INCLUDE "game/input.asm"
+
+; ------------------------------------------------------------
+; Carga de graficos (DMA a VRAM/CGRAM y fondos)
+; ------------------------------------------------------------
+
+.INCLUDE "engine/dma.asm"
+.INCLUDE "engine/ppu.asm"
 
 
 ; ------------------------------------------------------------
@@ -385,5 +322,6 @@ PieceTileTable:
 .SECTION "GraphicsData"
 
 .INCLUDE "data/TetrisPieces_data.as"
+.INCLUDE "data/BackgroundTetris1_data.as"
 
 .ENDS
