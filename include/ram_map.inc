@@ -20,6 +20,15 @@
 ; ============================================================
 
 
+; ---------- $00-$0F : scratch ----------
+; Parametros de DmaToVram / DmaToCgram (engine/dma.asm).
+; Son temporales: el que llama los escribe justo antes del JSR.
+.DEFINE DMA_SRC         $00   ; 16 bits: direccion origen
+.DEFINE DMA_BANK        $02   ; 8 bits:  banco origen
+.DEFINE DMA_SIZE        $03   ; 16 bits: tamano en bytes
+.DEFINE DMA_DEST        $05   ; 16 bits: destino (word VRAM / indice CGRAM)
+
+
 ; ---------- $10-$1F : estado de la pieza activa ----------
 
 .DEFINE ACTIVE_PIECE_TYPE      $10

@@ -15,6 +15,10 @@
 .DEFINE OAMADDH     $2103   ; direccion OAM (high)
 .DEFINE OAMDATA     $2104   ; puerto de escritura a OAM
 .DEFINE BGMODE      $2105   ; modo de fondo
+.DEFINE BG1SC       $2107   ; BG1: direccion y tamano del tilemap
+.DEFINE BG12NBA     $210B   ; BG1/BG2: direccion base de los tiles
+.DEFINE BG1HOFS     $210D   ; BG1: scroll horizontal (escritura doble)
+.DEFINE BG1VOFS     $210E   ; BG1: scroll vertical (escritura doble)
 .DEFINE VMAIN       $2115   ; control de incremento de VRAM
 .DEFINE VMADDL      $2116   ; direccion VRAM (low)
 .DEFINE VMADDH      $2117   ; direccion VRAM (high)
@@ -42,6 +46,17 @@
 .DEFINE DAS0H       $4306   ; tamano (high)
 .DEFINE MDMAEN      $420B   ; disparar canales DMA
 
+; ---------- DMA canal 1 ----------
+; El NMI usa el canal 0 para la OAM. Las cargas de graficos
+; (engine/dma.asm) usan el canal 1 para no pisarse con el NMI.
+.DEFINE DMAP1       $4310   ; modo de transferencia
+.DEFINE BBAD1       $4311   ; registro destino ($21xx)
+.DEFINE A1T1L       $4312   ; direccion origen (low)
+.DEFINE A1T1H       $4313   ; direccion origen (high)
+.DEFINE A1B1        $4314   ; banco origen
+.DEFINE DAS1L       $4315   ; tamano (low)
+.DEFINE DAS1H       $4316   ; tamano (high)
+
 ; ---------- Mascaras de botones del control ----------
 ; El control devuelve 16 bits. Cada bit es un boton.
 ; Ojo con el orden: NO es alfabetico ni intuitivo, es el orden
@@ -61,3 +76,12 @@
 
 ; Mascara combinada izquierda+derecha (para el auto-repeat lateral)
 .DEFINE BTN_LEFTRIGHT $0300
+
+; ---------- Prioridad de sprites (bits 4-5 del atributo OAM) ----------
+; En modo 1, de adelante hacia atras:
+;   OBJ3 > BG1 alta > BG2 alta > OBJ2 > BG1 baja > BG2 baja > OBJ1 > BG3 > OBJ0
+; Con prioridad 0 un sprite queda DETRAS de BG1 y BG2.
+.DEFINE OBJ_PRIO_0  $00
+.DEFINE OBJ_PRIO_1  $10
+.DEFINE OBJ_PRIO_2  $20
+.DEFINE OBJ_PRIO_3  $30   ; encima de todos los fondos
