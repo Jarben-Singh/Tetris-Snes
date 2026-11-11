@@ -22,6 +22,21 @@
 ; Cantidad de tipos de pieza (I, O, T, S, Z, J, L).
 .DEFINE PIECE_TYPE_COUNT 7
 
+; Tamano del tablero, en celdas. board.asm todavia no existe
+; (semana 8), asi que por ahora estos limites solo evitan que la
+; pieza se salga de la pantalla; no son colision real contra el
+; fondo ni contra otras piezas.
+.DEFINE BOARD_WIDTH  10
+.DEFINE BOARD_HEIGHT 20
+
+; Toda pieza ocupa como maximo 4 celdas de ancho/alto (la I en
+; horizontal/vertical), asi que ese es el margen que se le resta
+; al tablero para obtener el rango valido de la esquina superior
+; izquierda de la pieza activa.
+.DEFINE ACTIVE_PIECE_MIN_X  0
+.DEFINE ACTIVE_PIECE_MAX_X  (BOARD_WIDTH - 4)
+.DEFINE ACTIVE_PIECE_MAX_Y  (BOARD_HEIGHT - 4)
+
 
 ; ============================================================
 ; ActivePieceInit
@@ -64,6 +79,33 @@ ActivePieceInit:
 ActivePieceUpdate:
     PHP
 
+
+    ; --------------------------------------------------------
+    ; Movimiento horizontal (D-pad, con auto-repeat via DAS)
+    ; Sin colision real todavia: solo se detiene en los bordes
+    ; fijos del tablero (ver ACTIVE_PIECE_MIN_X/MAX_X arriba).
+    ; --------------------------------------------------------
+
+    JSR InputDAS             ; A (8 bits): 0 nada, 1 izq, 2 der
+
+    CMP #$01
+    BNE ActivePieceUpdate_CheckMoveRight
+    LDA ACTIVE_PIECE_X
+    CMP #ACTIVE_PIECE_MIN_X
+    BEQ ActivePieceUpdate_CheckSelect   ; ya esta en el borde izquierdo
+    DEC ACTIVE_PIECE_X
+    BRA ActivePieceUpdate_CheckSelect
+
+ActivePieceUpdate_CheckMoveRight:
+    CMP #$02
+    BNE ActivePieceUpdate_CheckSelect
+    LDA ACTIVE_PIECE_X
+    CMP #ACTIVE_PIECE_MAX_X
+    BEQ ActivePieceUpdate_CheckSelect   ; ya esta en el borde derecho
+    INC ACTIVE_PIECE_X
+
+
+ActivePieceUpdate_CheckSelect:
 
     ; --------------------------------------------------------
     ; SELECT: siguiente tipo de pieza, rotacion vuelve a 0
@@ -129,6 +171,34 @@ ActivePieceUpdate_Wrap:
 
 
 ActivePieceUpdate_Done:
+    PLP
+    RTS
+
+
+; ============================================================
+; ActivePieceApplyGravity
+;
+; Baja la pieza activa una fila. La llama el bucle principal
+; cuando GravityShouldFall (engine/timing.asm) dice que toca.
+;
+; Sin board.asm todavia no hay colision real contra el fondo ni
+; contra otras piezas: por ahora solo se detiene en un piso fijo
+; (ACTIVE_PIECE_MAX_Y) para que la pieza no se salga de la
+; pantalla. Cuando exista el tablero, este tope se reemplaza por
+; la verificacion de colision de verdad.
+; ============================================================
+
+ActivePieceApplyGravity:
+    PHP
+    A8
+
+    LDA ACTIVE_PIECE_Y
+    CMP #ACTIVE_PIECE_MAX_Y
+    BCS ActivePieceApplyGravity_Done   ; ya llego al piso temporal
+
+    INC ACTIVE_PIECE_Y
+
+ActivePieceApplyGravity_Done:
     PLP
     RTS
 
