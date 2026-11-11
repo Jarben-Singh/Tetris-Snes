@@ -265,7 +265,12 @@ ClearCGRAMLoop:
     ; manda a la pantalla).
     ; --------------------------------------------------------
 MainLoop:
-    JSR WaitFrame       ; esperar al siguiente frame
+    JSR WaitFrame             ; esperar al siguiente frame
+    JSR GravityShouldFall     ; A (8 bits) = 1 si toca bajar este frame
+    CMP #$00                  ; el PLP de la funcion no deja la bandera
+    BEQ MainLoop_NoFall        ; Z lista: hay que releerla aqui
+    JSR ActivePieceApplyGravity
+MainLoop_NoFall:
     JSR ActivePieceUpdate
     JSR DrawActivePiece
     SEP #$20            ; DrawActivePiece no restaura P:

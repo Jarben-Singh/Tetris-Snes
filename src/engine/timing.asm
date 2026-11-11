@@ -85,6 +85,37 @@ TimingGravityFire:
     RTS
 
 ; ------------------------------------------------------------
+; GravityShouldFall - decide si la pieza debe bajar este frame
+; ------------------------------------------------------------
+; Combina la gravedad normal (TimingTickGravity) con el soft
+; drop: si el jugador mantiene ABAJO, la pieza cae cada frame
+; sin esperar al temporizador normal.
+;
+; Devuelve en A (8 bits):
+;   0 = no bajar,  1 = bajar
+; ------------------------------------------------------------
+GravityShouldFall:
+    PHP
+    JSR TimingTickGravity   ; A (8 bits) = resultado de la gravedad normal
+    PHA                      ; guardarlo mientras revisamos el boton
+
+    A16
+    LDA PAD1_HELD
+    AND #BTN_DOWN
+    A8                       ; volver a 8 bits antes de tocar la pila
+    BEQ GravityShouldFall_UseTimer
+
+    PLA                      ; descartar el resultado del timer
+    LDA #$01                 ; ABAJO mantenido -> siempre cae
+    PLP
+    RTS
+
+GravityShouldFall_UseTimer:
+    PLA                      ; recuperar el resultado del timer normal
+    PLP
+    RTS
+
+; ------------------------------------------------------------
 ; WaitFrame - detiene el bucle principal hasta el siguiente frame
 ; ------------------------------------------------------------
 ; WAI apaga la CPU hasta que llega una interrupcion. Esto hace

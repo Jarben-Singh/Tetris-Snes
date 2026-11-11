@@ -20,14 +20,30 @@
 
 ; Posicion inicial de la pieza activa (en celdas del grid).
 ; Es la esquina de la caja 4x4 de la pieza: X=3 la centra en
-; las 10 columnas (3 libres a cada lado) e Y=8 en las 20 filas
-; (8 arriba, 8 abajo). Para aparecer arriba, como en el juego
-; normal, usar Y=0.
+; las 10 columnas (3 libres a cada lado) e Y=0 la hace aparecer
+; arriba, desde donde la gravedad la va bajando.
 .DEFINE ACTIVE_PIECE_START_X 3
-.DEFINE ACTIVE_PIECE_START_Y 8
+.DEFINE ACTIVE_PIECE_START_Y 0
 
 ; Cantidad de tipos de pieza (I, O, T, S, Z, J, L).
 .DEFINE PIECE_TYPE_COUNT 7
+
+; Tamano del tablero, en celdas. board.asm todavia no existe
+; (semana 8), asi que por ahora estos limites solo evitan que la
+; pieza se salga del tablero dibujado en el fondo; no hay
+; colision contra otras piezas.
+.DEFINE BOARD_WIDTH  10
+.DEFINE BOARD_HEIGHT 20
+
+; Pieza candidata (scratch $09-$0F) para ActivePieceFits.
+; Se copia el estado actual, se modifica un campo (X, Y,
+; rotacion o tipo) y solo se aplica si las 4 celdas caben.
+.DEFINE CAND_TYPE      $09
+.DEFINE CAND_ROTATION  $0A
+.DEFINE CAND_X         $0B
+.DEFINE CAND_Y         $0C
+.DEFINE CAND_COUNT     $0D    ; bloques que faltan revisar
+.DEFINE CAND_OFFSET    $0E    ; 16 bits: tipo*32 temporal
 
 
 ; ============================================================
@@ -65,12 +81,37 @@ ActivePieceInit:
 ;   SELECT -> cambiar a la siguiente pieza (prueba)
 ;
 ; La rotacion siempre queda entre 0 y 3.
-; Por ahora no revisa colisiones.
+; Cada cambio solo se aplica si las 4 celdas de la pieza quedan
+; dentro del tablero (ActivePieceFits). Sin colision contra
+; otras piezas todavia.
 ; ============================================================
 
 ActivePieceUpdate:
     PHP
 
+
+    ; --------------------------------------------------------
+    ; Movimiento horizontal (D-pad, con auto-repeat via DAS)
+    ; --------------------------------------------------------
+
+    JSR InputDAS             ; A (8 bits): 0 nada, 1 izq, 2 der
+
+    CMP #$01
+    BNE ActivePieceUpdate_CheckMoveRight
+    JSR ActivePieceLoadCandidate
+    DEC CAND_X
+    JSR ActivePieceTryCommit
+    BRA ActivePieceUpdate_CheckSelect
+
+ActivePieceUpdate_CheckMoveRight:
+    CMP #$02
+    BNE ActivePieceUpdate_CheckSelect
+    JSR ActivePieceLoadCandidate
+    INC CAND_X
+    JSR ActivePieceTryCommit
+
+
+ActivePieceUpdate_CheckSelect:
 
     ; --------------------------------------------------------
     ; SELECT: siguiente tipo de pieza, rotacion vuelve a 0
@@ -82,15 +123,17 @@ ActivePieceUpdate:
     BEQ ActivePieceUpdate_CheckA
 
     A8
-    LDA ACTIVE_PIECE_TYPE
+    JSR ActivePieceLoadCandidate
+    LDA CAND_TYPE
     INC A
     CMP #PIECE_TYPE_COUNT
     BCC ActivePieceUpdate_SetType
     LDA #$00                ; despues de L vuelve a I
 
 ActivePieceUpdate_SetType:
-    STA ACTIVE_PIECE_TYPE
-    STZ ACTIVE_PIECE_ROTATION
+    STA CAND_TYPE
+    STZ CAND_ROTATION
+    JSR ActivePieceTryCommit
 
 
 ActivePieceUpdate_CheckA:
@@ -107,7 +150,9 @@ ActivePieceUpdate_CheckA:
     BEQ ActivePieceUpdate_CheckB
 
     A8
-    INC ACTIVE_PIECE_ROTATION
+    JSR ActivePieceLoadCandidate
+    LDA CAND_ROTATION
+    INC A
     BRA ActivePieceUpdate_Wrap
 
 
@@ -123,20 +168,167 @@ ActivePieceUpdate_CheckB:
     BEQ ActivePieceUpdate_Done
 
     A8
-    DEC ACTIVE_PIECE_ROTATION
+    JSR ActivePieceLoadCandidate
+    LDA CAND_ROTATION
+    DEC A
 
 
 ActivePieceUpdate_Wrap:
 
     ; 3 + 1 = 4 -> 0   y   0 - 1 = $FF -> 3
     A8
-    LDA ACTIVE_PIECE_ROTATION
     AND #$03
-    STA ACTIVE_PIECE_ROTATION
+    STA CAND_ROTATION
+    JSR ActivePieceTryCommit
 
 
 ActivePieceUpdate_Done:
     PLP
+    RTS
+
+
+; ============================================================
+; ActivePieceApplyGravity
+;
+; Baja la pieza activa una fila. La llama el bucle principal
+; cuando GravityShouldFall (engine/timing.asm) dice que toca.
+;
+; Se detiene cuando alguna celda llegaria a la ultima fila del
+; tablero. Cuando exista board.asm se agrega la colision contra
+; las piezas fijas.
+; ============================================================
+
+ActivePieceApplyGravity:
+    PHP
+    A8
+
+    JSR ActivePieceLoadCandidate
+    INC CAND_Y
+    JSR ActivePieceTryCommit
+
+    PLP
+    RTS
+
+
+; ============================================================
+; ActivePieceLoadCandidate
+;
+; Copia el estado de la pieza activa a la candidata.
+; ============================================================
+
+ActivePieceLoadCandidate:
+    PHP
+    A8
+
+    LDA ACTIVE_PIECE_TYPE
+    STA CAND_TYPE
+    LDA ACTIVE_PIECE_ROTATION
+    STA CAND_ROTATION
+    LDA ACTIVE_PIECE_X
+    STA CAND_X
+    LDA ACTIVE_PIECE_Y
+    STA CAND_Y
+
+    PLP
+    RTS
+
+
+; ============================================================
+; ActivePieceTryCommit
+;
+; Si la candidata cabe en el tablero, pasa a ser la pieza
+; activa. Si no, la pieza activa no cambia.
+; ============================================================
+
+ActivePieceTryCommit:
+    PHP
+    A8
+
+    JSR ActivePieceFits
+    BCC ActivePieceTryCommit_Done
+
+    LDA CAND_TYPE
+    STA ACTIVE_PIECE_TYPE
+    LDA CAND_ROTATION
+    STA ACTIVE_PIECE_ROTATION
+    LDA CAND_X
+    STA ACTIVE_PIECE_X
+    LDA CAND_Y
+    STA ACTIVE_PIECE_Y
+
+ActivePieceTryCommit_Done:
+    PLP
+    RTS
+
+
+; ============================================================
+; ActivePieceFits
+;
+; Revisa las 4 celdas de la pieza candidata:
+;   0 <= CAND_X + dx < BOARD_WIDTH
+;   0 <= CAND_Y + dy < BOARD_HEIGHT
+;
+; X/Y son de 8 bits sin signo: una celda "negativa" da $FF..$FD,
+; que es >= al ancho/alto, asi que una sola comparacion sin
+; signo cubre los dos bordes. La caja 4x4 puede quedar en X
+; negativa (p.ej. la I vertical) mientras sus celdas caben.
+;
+; Devuelve: carry = 1 cabe, carry = 0 se sale.
+; Usa X.
+; ============================================================
+
+ActivePieceFits:
+    PHP
+    AI16
+
+    ; X = tipo*32 + rotacion*8 (igual que DrawActivePiece)
+    LDA CAND_TYPE
+    AND #$00FF
+    ASL
+    ASL
+    ASL
+    ASL
+    ASL
+    STA CAND_OFFSET
+
+    LDA CAND_ROTATION
+    AND #$0003
+    ASL
+    ASL
+    ASL
+    CLC
+    ADC CAND_OFFSET
+    TAX
+
+    A8
+    LDA #$04
+    STA CAND_COUNT
+
+ActivePieceFits_Loop:
+    LDA.w TetrominoRotations,X     ; dx
+    CLC
+    ADC CAND_X
+    CMP #BOARD_WIDTH
+    BCS ActivePieceFits_No
+
+    LDA.w TetrominoRotations+1,X   ; dy
+    CLC
+    ADC CAND_Y
+    CMP #BOARD_HEIGHT
+    BCS ActivePieceFits_No
+
+    INX
+    INX
+    DEC CAND_COUNT
+    BNE ActivePieceFits_Loop
+
+    PLP                 ; PLP restaura el carry: fijarlo despues
+    SEC
+    RTS
+
+ActivePieceFits_No:
+    PLP
+    CLC
     RTS
 
 
