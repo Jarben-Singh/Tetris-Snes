@@ -28,10 +28,9 @@
 ; Cantidad de tipos de pieza (I, O, T, S, Z, J, L).
 .DEFINE PIECE_TYPE_COUNT 7
 
-; Tamano del tablero, en celdas. board.asm todavia no existe
-; (semana 8), asi que por ahora estos limites solo evitan que la
-; pieza se salga del tablero dibujado en el fondo; no hay
-; colision contra otras piezas.
+; Tamano del tablero, en celdas. Ademas de estos limites,
+; ActivePieceFits revisa las celdas ocupadas en BOARD
+; (game/board.asm).
 .DEFINE BOARD_WIDTH  10
 .DEFINE BOARD_HEIGHT 20
 
@@ -44,13 +43,17 @@
 .DEFINE CAND_Y         $0C
 .DEFINE CAND_COUNT     $0D    ; bloques que faltan revisar
 .DEFINE CAND_OFFSET    $0E    ; 16 bits: tipo*32 temporal
+; Una vez calculado X, CAND_OFFSET ya no se usa y sus dos bytes
+; sirven para calcular el indice de cada celda en BOARD.
+.DEFINE CAND_CELL_X    $0E    ; columna de la celda
+.DEFINE CAND_ROW2      $0F    ; fila*2
 
 
 ; ============================================================
 ; ActivePieceInit
 ;
-; Deja la pieza activa en su estado inicial:
-; pieza T, rotacion 0, en la posicion de inicio.
+; Arranca la secuencia de piezas y saca la primera pieza
+; (la T, como antes).
 ; ============================================================
 
 ActivePieceInit:
@@ -58,6 +61,62 @@ ActivePieceInit:
     A8
 
     LDA #$02                ; T
+    STA NEXT_PIECE_TYPE
+    JSR ActivePieceSpawn
+
+    PLP
+    RTS
+
+
+; ============================================================
+; ActivePieceTakeNextType
+;
+; Devuelve en A (8 bits) el tipo de la pieza que sale ahora y
+; deja en NEXT_PIECE_TYPE la que sale despues.
+;
+; Por ahora el orden es fijo: I, O, T, S, Z, J, L y vuelve a
+; empezar. PUNTO DE INTEGRACION del randomizer: para piezas
+; aleatorias basta con reemplazar el calculo del nuevo
+; NEXT_PIECE_TYPE (un valor 0-6); nada mas depende del orden.
+; ============================================================
+
+ActivePieceTakeNextType:
+    PHP
+    A8
+
+    LDA NEXT_PIECE_TYPE
+    PHA                     ; la que sale ahora
+
+    ; --- siguiente pieza (orden fijo) ---
+    INC A
+    CMP #PIECE_TYPE_COUNT
+    BCC ActivePieceTakeNextType_Store
+    LDA #$00                ; despues de L vuelve a I
+
+ActivePieceTakeNextType_Store:
+    STA NEXT_PIECE_TYPE
+
+    PLA
+    PLP
+    RTS
+
+
+; ============================================================
+; ActivePieceSpawn
+;
+; Saca la siguiente pieza arriba del tablero: rotacion 0, en la
+; posicion de inicio.
+;
+; Si no cabe, el tablero se lleno (game over). Mientras no
+; exista la maquina de estados (states.asm) se vacia el tablero
+; y se sigue jugando.
+; ============================================================
+
+ActivePieceSpawn:
+    PHP
+    A8
+
+    JSR ActivePieceTakeNextType
     STA ACTIVE_PIECE_TYPE
     STZ ACTIVE_PIECE_ROTATION
 
@@ -66,6 +125,15 @@ ActivePieceInit:
     LDA #ACTIVE_PIECE_START_Y
     STA ACTIVE_PIECE_Y
 
+    JSR ActivePieceLoadCandidate
+    JSR ActivePieceFits
+    BCS ActivePieceSpawn_Done
+
+    ; TODO(states.asm): aqui va el game over.
+    JSR BoardClear
+    JSR BoardDraw
+
+ActivePieceSpawn_Done:
     PLP
     RTS
 
@@ -82,8 +150,7 @@ ActivePieceInit:
 ;
 ; La rotacion siempre queda entre 0 y 3.
 ; Cada cambio solo se aplica si las 4 celdas de la pieza quedan
-; dentro del tablero (ActivePieceFits). Sin colision contra
-; otras piezas todavia.
+; dentro del tablero y libres (ActivePieceFits).
 ; ============================================================
 
 ActivePieceUpdate:
@@ -193,9 +260,9 @@ ActivePieceUpdate_Done:
 ; Baja la pieza activa una fila. La llama el bucle principal
 ; cuando GravityShouldFall (engine/timing.asm) dice que toca.
 ;
-; Se detiene cuando alguna celda llegaria a la ultima fila del
-; tablero. Cuando exista board.asm se agrega la colision contra
-; las piezas fijas.
+; Si no puede bajar (toco el suelo o una pieza fija), la pieza
+; se fija en el tablero, se redibujan los bloques fijos y sale
+; la siguiente pieza.
 ; ============================================================
 
 ActivePieceApplyGravity:
@@ -205,7 +272,13 @@ ActivePieceApplyGravity:
     JSR ActivePieceLoadCandidate
     INC CAND_Y
     JSR ActivePieceTryCommit
+    BCS ActivePieceApplyGravity_Done
 
+    JSR BoardLockPiece
+    JSR BoardDraw
+    JSR ActivePieceSpawn
+
+ActivePieceApplyGravity_Done:
     PLP
     RTS
 
@@ -238,6 +311,8 @@ ActivePieceLoadCandidate:
 ;
 ; Si la candidata cabe en el tablero, pasa a ser la pieza
 ; activa. Si no, la pieza activa no cambia.
+;
+; Devuelve: carry = 1 se aplico, carry = 0 no cabia.
 ; ============================================================
 
 ActivePieceTryCommit:
@@ -245,7 +320,7 @@ ActivePieceTryCommit:
     A8
 
     JSR ActivePieceFits
-    BCC ActivePieceTryCommit_Done
+    BCC ActivePieceTryCommit_No
 
     LDA CAND_TYPE
     STA ACTIVE_PIECE_TYPE
@@ -256,8 +331,13 @@ ActivePieceTryCommit:
     LDA CAND_Y
     STA ACTIVE_PIECE_Y
 
-ActivePieceTryCommit_Done:
+    PLP                 ; PLP restaura el carry: fijarlo despues
+    SEC
+    RTS
+
+ActivePieceTryCommit_No:
     PLP
+    CLC
     RTS
 
 
@@ -267,19 +347,21 @@ ActivePieceTryCommit_Done:
 ; Revisa las 4 celdas de la pieza candidata:
 ;   0 <= CAND_X + dx < BOARD_WIDTH
 ;   0 <= CAND_Y + dy < BOARD_HEIGHT
+;   BOARD[fila*10 + columna] == 0     (celda libre)
 ;
 ; X/Y son de 8 bits sin signo: una celda "negativa" da $FF..$FD,
 ; que es >= al ancho/alto, asi que una sola comparacion sin
 ; signo cubre los dos bordes. La caja 4x4 puede quedar en X
 ; negativa (p.ej. la I vertical) mientras sus celdas caben.
 ;
-; Devuelve: carry = 1 cabe, carry = 0 se sale.
-; Usa X.
+; Devuelve: carry = 1 cabe, carry = 0 se sale o choca.
+; Usa X. Preserva Y.
 ; ============================================================
 
 ActivePieceFits:
     PHP
     AI16
+    PHY
 
     ; X = tipo*32 + rotacion*8 (igual que DrawActivePiece)
     LDA CAND_TYPE
@@ -310,6 +392,7 @@ ActivePieceFits_Loop:
     ADC CAND_X
     CMP #BOARD_WIDTH
     BCS ActivePieceFits_No
+    STA CAND_CELL_X
 
     LDA.w TetrominoRotations+1,X   ; dy
     CLC
@@ -317,16 +400,35 @@ ActivePieceFits_Loop:
     CMP #BOARD_HEIGHT
     BCS ActivePieceFits_No
 
+    ; indice = fila*10 + columna (fila*8 + fila*2)
+    ASL                            ; fila*2
+    STA CAND_ROW2
+    ASL
+    ASL                            ; fila*8
+    CLC
+    ADC CAND_ROW2
+    CLC
+    ADC CAND_CELL_X
+
+    A16
+    AND #$00FF
+    TAY
+    A8
+    LDA.w BOARD,Y
+    BNE ActivePieceFits_No         ; celda ocupada por una pieza fija
+
     INX
     INX
     DEC CAND_COUNT
     BNE ActivePieceFits_Loop
 
+    PLY
     PLP                 ; PLP restaura el carry: fijarlo despues
     SEC
     RTS
 
 ActivePieceFits_No:
+    PLY
     PLP
     CLC
     RTS

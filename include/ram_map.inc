@@ -35,6 +35,7 @@
 .DEFINE ACTIVE_PIECE_ROTATION  $11
 .DEFINE ACTIVE_PIECE_X         $12
 .DEFINE ACTIVE_PIECE_Y         $13
+.DEFINE NEXT_PIECE_TYPE        $14   ; tipo que saldra en el proximo spawn
 
 
 
@@ -53,6 +54,12 @@
 .DEFINE DAS_TIMER       $2D   ; auto-repeat del D-pad
 .DEFINE DAS_DIR         $2E   ; direccion que se esta repitiendo
 .DEFINE OAM_DIRTY       $2F   ; 1 = hay cambios de sprites por mandar
+
+; ---------- Tablero (game/board.asm) ----------
+; 10 x 20 celdas, una por byte, fila por fila:
+;   indice = fila * 10 + columna
+; 0 = vacia, 1-7 = bloque fijo (tipo de pieza + 1).
+.DEFINE BOARD           $0100   ; 200 bytes: $0100-$01C7
 
 ; ---------- Buffer espejo de OAM ----------
 ; No se puede escribir a OAM cuando la pantalla esta dibujando.
