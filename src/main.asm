@@ -313,6 +313,7 @@ PieceTileTable:
 
 .INCLUDE "data/tables.asm"
 .INCLUDE "game/piece.asm"
+.INCLUDE "game/board.asm"
 
 
 .ENDS
