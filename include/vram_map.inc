@@ -11,15 +11,34 @@
 ;   $0000-$0FFF   tiles de sprites (OBJ, 8 KB)
 ;   $2000-$2FFF   tiles de BG1 (4bpp)
 ;   $3000-$33FF   tilemap de BG1 (32x32)
+;   $3400-$37FF   tilemap de BG2 (32x32) - bloques fijos
+;   $4000-$407F   tiles de BG2 (4bpp) - tile 0 vacio + 7 piezas
 ; ============================================================
 
 .DEFINE VRAM_OBJ_TILES  $0000   ; OBSEL name base = 0 (main.asm)
 .DEFINE VRAM_BG1_TILES  $2000   ; multiplo de $1000 (BG12NBA)
 .DEFINE VRAM_BG1_MAP    $3000   ; multiplo de $0400 (BG1SC)
 
+; BG2 = capa de los bloques fijos del tablero (game/board.asm).
+; El tile N de BG2 es el tile N-1 de las piezas: el tile 0 se
+; queda en ceros (transparente) para las celdas vacias.
+.DEFINE VRAM_BG2_TILES  $4000   ; multiplo de $1000 (BG12NBA)
+.DEFINE VRAM_BG2_MAP    $3400   ; multiplo de $0400 (BG2SC)
+
+; Cuantos tiles de TetrisPieces se copian a BG2 (a partir del
+; tile 1). Debe cubrir el indice mas alto de PieceTileTable + 1;
+; board.asm lo comprueba contra PIECE_TYPE_COUNT.
+.DEFINE BG2_PIECE_TILES 7
+
+; BG12NBA tiene un nibble por capa: bajo = BG1, alto = BG2.
+; Se escribe UNA vez con los dos (main.asm): si cada capa lo
+; escribiera por separado, la segunda borraria a la primera.
+.DEFINE BG12NBA_VALUE   (((VRAM_BG2_TILES >> 12) << 4) | (VRAM_BG1_TILES >> 12))
+
 ; ---------- CGRAM (indice de color, 0-255) ----------
 ; 0-127 = paletas de fondo (8 x 16), 128-255 = sprites.
 .DEFINE CGRAM_BG_PAL0   $00     ; paleta 0 de BG (color 0 = backdrop)
+.DEFINE CGRAM_BG_PAL1   $10     ; paleta 1 de BG = colores de las piezas
 .DEFINE CGRAM_OBJ_PAL0  $80     ; paleta 0 de sprites
 
 ; ---------- Comprobaciones en tiempo de ensamblado ----------
@@ -30,4 +49,10 @@
 .ENDIF
 .IF (VRAM_BG1_MAP & $03FF) != 0
     .FAIL "VRAM_BG1_MAP debe ser multiplo de $0400"
+.ENDIF
+.IF (VRAM_BG2_TILES & $0FFF) != 0
+    .FAIL "VRAM_BG2_TILES debe ser multiplo de $1000"
+.ENDIF
+.IF (VRAM_BG2_MAP & $03FF) != 0
+    .FAIL "VRAM_BG2_MAP debe ser multiplo de $0400"
 .ENDIF
