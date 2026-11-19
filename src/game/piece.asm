@@ -6,7 +6,7 @@
 
 ; Posicion en pixeles de la celda (0,0) del tablero.
 ; NO es el tamano del tablero.
-; Debe coincidir con el fondo (assets/Background-Tetris1.png):
+; Debe coincidir con el fondo (assets/Background1-Tetris.png):
 ; el interior del tablero son los tiles 11-20 en X y 4-23 en Y
 ; (10x20 celdas), asi que empieza en (11*8, 4*8).
 .DEFINE BOARD_ORIGIN_X 88

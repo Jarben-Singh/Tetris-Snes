@@ -49,7 +49,7 @@ SOURCES := $(wildcard $(SRC_DIR)/*.asm) \
 GFX_DIR   := assets/gfx
 GFX_FLAGS := -M snes -B 4 -R
 
-BG1_PNG := assets/Background-Tetris1_snes.png
+BG1_PNG := assets/Background1-Tetris.png
 BG1_OUT := $(GFX_DIR)/background_tetris1
 
 # Si cambia un binario incluido con .incbin hay que reensamblar.
