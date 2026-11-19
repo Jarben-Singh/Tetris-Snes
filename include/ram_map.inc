@@ -55,6 +55,11 @@
 .DEFINE DAS_DIR         $2E   ; direccion que se esta repitiendo
 .DEFINE OAM_DIRTY       $2F   ; 1 = hay cambios de sprites por mandar
 
+; ---------- $30-$39 : generador aleatorio / bolsa de piezas ----------
+.DEFINE RNG_STATE       $30   ; 16 bits: estado del xorshift, nunca 0
+.DEFINE PIECE_BAG       $32   ; 7 bytes: bolsa con los tipos 0-6 revueltos
+.DEFINE BAG_INDEX       $39   ; siguiente posicion a repartir (0-6)
+
 ; ---------- Tablero (game/board.asm) ----------
 ; 10 x 20 celdas, una por byte, fila por fila:
 ;   indice = fila * 10 + columna
