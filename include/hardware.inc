@@ -46,6 +46,17 @@
 .DEFINE DAS0H       $4306   ; tamano (high)
 .DEFINE MDMAEN      $420B   ; disparar canales DMA
 
+; ---------- Multiplicador por hardware ----------
+; Multiplicacion de 8x8 bits sin signo. Escribir WRMPYB dispara
+; el calculo; el resultado (16 bits) queda listo unos ciclos
+; despues en RDMPYL/RDMPYH. El 65816 no tiene instruccion de
+; multiplicar ni dividir, asi que esto evita tener que hacerlo
+; a mano con loops.
+.DEFINE WRMPYA      $4202   ; multiplicando (escritura)
+.DEFINE WRMPYB      $4203   ; multiplicador (escritura, dispara el calculo)
+.DEFINE RDMPYL      $4216   ; resultado, byte bajo
+.DEFINE RDMPYH      $4217   ; resultado, byte alto
+
 ; ---------- DMA canal 1 ----------
 ; El NMI usa el canal 0 para la OAM. Las cargas de graficos
 ; (engine/dma.asm) usan el canal 1 para no pisarse con el NMI.
