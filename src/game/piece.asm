@@ -52,15 +52,19 @@
 ; ============================================================
 ; ActivePieceInit
 ;
-; Arranca la secuencia de piezas y saca la primera pieza
-; (la T, como antes).
+; Arranca la secuencia de piezas: llena la primera bolsa, saca
+; una pieza como "siguiente" y hace aparecer la primera activa
+; (que a su vez saca otra de la bolsa para reemplazar esa
+; "siguiente", igual que cualquier spawn posterior).
 ; ============================================================
 
 ActivePieceInit:
     PHP
     A8
 
-    LDA #$02                ; T
+    JSR BagRefill             ; primera bolsa de la partida
+
+    JSR BagDraw
     STA NEXT_PIECE_TYPE
     JSR ActivePieceSpawn
 
@@ -72,12 +76,8 @@ ActivePieceInit:
 ; ActivePieceTakeNextType
 ;
 ; Devuelve en A (8 bits) el tipo de la pieza que sale ahora y
-; deja en NEXT_PIECE_TYPE la que sale despues.
-;
-; Por ahora el orden es fijo: I, O, T, S, Z, J, L y vuelve a
-; empezar. PUNTO DE INTEGRACION del randomizer: para piezas
-; aleatorias basta con reemplazar el calculo del nuevo
-; NEXT_PIECE_TYPE (un valor 0-6); nada mas depende del orden.
+; deja en NEXT_PIECE_TYPE la que sale despues (sacada de la
+; bolsa de 7 piezas).
 ; ============================================================
 
 ActivePieceTakeNextType:
@@ -87,16 +87,88 @@ ActivePieceTakeNextType:
     LDA NEXT_PIECE_TYPE
     PHA                     ; la que sale ahora
 
-    ; --- siguiente pieza (orden fijo) ---
-    INC A
-    CMP #PIECE_TYPE_COUNT
-    BCC ActivePieceTakeNextType_Store
-    LDA #$00                ; despues de L vuelve a I
-
-ActivePieceTakeNextType_Store:
+    JSR BagDraw
     STA NEXT_PIECE_TYPE
 
     PLA
+    PLP
+    RTS
+
+
+; ============================================================
+; Bolsa de 7 piezas (randomizer)
+; ------------------------------------------------------------
+; Reparte los 7 tipos de pieza en un orden al azar, pero SIN
+; repetir ninguno hasta haber entregado los 7 (asi nunca pasan,
+; por ejemplo, 15 piezas seguidas sin una I). Usa el generador
+; de engine/random.asm.
+; ============================================================
+
+; ------------------------------------------------------------
+; BagRefill - llena y revuelve la bolsa (Fisher-Yates)
+; ------------------------------------------------------------
+; PIECE_BAG queda con los tipos 0-6 en un orden al azar y
+; BAG_INDEX vuelve a 0.
+; ------------------------------------------------------------
+BagRefill:
+    PHP
+    A8
+    I8
+
+    LDX #$00
+BagRefill_Fill:
+    TXA
+    STA PIECE_BAG,X
+    INX
+    CPX #PIECE_TYPE_COUNT
+    BNE BagRefill_Fill
+
+    ; Fisher-Yates: de la ultima posicion (6) a la segunda (1),
+    ; cada una se intercambia con una posicion al azar entre la
+    ; primera (0) y ella misma, inclusive.
+    LDX #$06
+BagRefill_Shuffle:
+    TXA
+    INC A                    ; rango valido: 0..X, o sea X+1 posiciones
+    JSR RandomRange           ; A (8 bits) = j, 0 <= j <= X
+    TAY
+
+    LDA PIECE_BAG,X
+    PHA
+    LDA PIECE_BAG,Y
+    STA PIECE_BAG,X
+    PLA
+    STA PIECE_BAG,Y
+
+    DEX
+    CPX #$00
+    BNE BagRefill_Shuffle
+
+    STZ BAG_INDEX
+    PLP
+    RTS
+
+; ------------------------------------------------------------
+; BagDraw - entrega la siguiente pieza de la bolsa
+; ------------------------------------------------------------
+; Devuelve en A (8 bits) un tipo 0-6. Si la bolsa ya se repartio
+; completa, la rellena y revuelve de nuevo antes de entregar.
+; ------------------------------------------------------------
+BagDraw:
+    PHP
+    A8
+    I8
+
+    LDA BAG_INDEX
+    CMP #PIECE_TYPE_COUNT
+    BCC BagDraw_HaveBag
+    JSR BagRefill             ; bolsa agotada: rellenar y revolver
+
+BagDraw_HaveBag:
+    LDX BAG_INDEX
+    LDA PIECE_BAG,X            ; INC de memoria no toca A: el valor queda
+    INC BAG_INDEX               ; a salvo mientras avanzamos el indice
+
     PLP
     RTS
 
@@ -146,7 +218,6 @@ ActivePieceSpawn_Done:
 ;
 ;   A      -> rotar en sentido horario      (rotacion + 1)
 ;   B      -> rotar en sentido antihorario  (rotacion - 1)
-;   SELECT -> cambiar a la siguiente pieza (prueba)
 ;
 ; La rotacion siempre queda entre 0 y 3.
 ; Cada cambio solo se aplica si las 4 celdas de la pieza quedan
@@ -168,38 +239,13 @@ ActivePieceUpdate:
     JSR ActivePieceLoadCandidate
     DEC CAND_X
     JSR ActivePieceTryCommit
-    BRA ActivePieceUpdate_CheckSelect
+    BRA ActivePieceUpdate_CheckA
 
 ActivePieceUpdate_CheckMoveRight:
     CMP #$02
-    BNE ActivePieceUpdate_CheckSelect
+    BNE ActivePieceUpdate_CheckA
     JSR ActivePieceLoadCandidate
     INC CAND_X
-    JSR ActivePieceTryCommit
-
-
-ActivePieceUpdate_CheckSelect:
-
-    ; --------------------------------------------------------
-    ; SELECT: siguiente tipo de pieza, rotacion vuelve a 0
-    ; --------------------------------------------------------
-
-    A16
-    LDA PAD1_PRESSED
-    AND #BTN_SELECT
-    BEQ ActivePieceUpdate_CheckA
-
-    A8
-    JSR ActivePieceLoadCandidate
-    LDA CAND_TYPE
-    INC A
-    CMP #PIECE_TYPE_COUNT
-    BCC ActivePieceUpdate_SetType
-    LDA #$00                ; despues de L vuelve a I
-
-ActivePieceUpdate_SetType:
-    STA CAND_TYPE
-    STZ CAND_ROTATION
     JSR ActivePieceTryCommit
 
 

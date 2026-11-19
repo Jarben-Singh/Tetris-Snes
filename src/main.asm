@@ -247,6 +247,14 @@ ClearCGRAMLoop:
     JSR InputInit
     JSR TimingInit
 
+    ; TODO(states.asm): cuando exista la pantalla de titulo, esta
+    ; semilla se mueve al handler de START ahi. Por ahora corre
+    ; aqui una sola vez, con FRAME_COUNTER recien puesto en 0
+    ; (TimingInit), asi que da la misma semilla en cada encendido;
+    ; vuelve a ser impredecible desde la primera bolsa cuando haya
+    ; pantalla de titulo de por medio.
+    JSR RandomSeed
+
     ; --------------------------------------------------------
     ; Logica de piezas
     ; --------------------------------------------------------
@@ -266,6 +274,7 @@ ClearCGRAMLoop:
     ; --------------------------------------------------------
 MainLoop:
     JSR WaitFrame             ; esperar al siguiente frame
+    JSR RandomAdvance         ; mantener el generador revolviendose
     JSR GravityShouldFall     ; A (8 bits) = 1 si toca bajar este frame
     CMP #$00                  ; el PLP de la funcion no deja la bandera
     BEQ MainLoop_NoFall        ; Z lista: hay que releerla aqui
@@ -297,6 +306,7 @@ PieceTileTable:
 .INCLUDE "core/nmi.asm"
 .INCLUDE "core/irq.asm"
 .INCLUDE "engine/timing.asm"
+.INCLUDE "engine/random.asm"
 .INCLUDE "game/input.asm"
 
 ; ------------------------------------------------------------
