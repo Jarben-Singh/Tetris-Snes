@@ -56,6 +56,15 @@ VBlankHandler:
     STZ OAM_DIRTY
 
 VBlank_SkipOAM:
+    ; --- Mandar los bloques fijos (tilemap de BG2) ---
+    ; Solo en los frames en que el tablero cambio: son 1280
+    ; bytes, que junto con la OAM siguen cabiendo en el V-Blank.
+    LDA BG2_DIRTY
+    BEQ VBlank_SkipBG2
+    JSR Bg2Flush            ; game/board.asm
+    STZ BG2_DIRTY
+
+VBlank_SkipBG2:
     ; --- Leer el control ---
     JSR InputUpdate
 

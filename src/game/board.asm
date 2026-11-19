@@ -1,10 +1,15 @@
 ; ============================================================
 ; board.asm
 ; Logica del tablero: matriz de piezas fijas y su dibujo.
-; (line clear pendiente)
 ;
 ; El tablero vive en BOARD (ram_map.inc): 10x20 bytes,
 ; indice = fila * 10 + columna, 0 = vacia, 1-7 = tipo + 1.
+;
+; Los bloques fijos se dibujan como TILES de BG2, no como
+; sprites: la SNES solo tiene 128 sprites (y 32 por linea), y
+; un tablero lleno son 200 bloques. BoardRender escribe el
+; tilemap en BG2_SHADOW y el NMI lo manda con Bg2Flush.
+; La pieza activa sigue siendo sprites (0-3).
 ;
 ; Usa BOARD_WIDTH, BOARD_HEIGHT y BOARD_ORIGIN_* de piece.asm,
 ; por eso se incluye despues de el.
@@ -18,11 +23,31 @@
 
 .DEFINE BOARD_CELLS (BOARD_WIDTH * BOARD_HEIGHT)
 
-; Los bloques fijos usan los sprites 4-127 (los 0-3 son de la
-; pieza activa). Si hay mas de 124 bloques, los sobrantes no se
-; dibujan (siguen contando para la colision).
-.DEFINE BOARD_SPRITE_BASE 4
-.DEFINE OAM_SPRITE_COUNT  128
+; Celda (0,0) del tablero en tiles del mapa de BG2.
+.DEFINE BOARD_TILE_X (BOARD_ORIGIN_X / 8)
+.DEFINE BOARD_TILE_Y (BOARD_ORIGIN_Y / 8)
+
+; Ancho del tilemap de BG2 (32x32) en entradas.
+.DEFINE BG2_MAP_WIDTH 32
+
+; Entrada del tilemap de un bloque, sin el numero de tile:
+;   bit 13    = prioridad alta (encima de BG1, que va en baja)
+;   bits 10-12 = paleta 1 de BG (CGRAM_BG_PAL1)
+.DEFINE BG2_BLOCK_ATTR ($2000 | ((CGRAM_BG_PAL1 / 16) << 10))
+
+; El tablero tiene que caer en el grid de 8x8 del mapa.
+.IF (BOARD_ORIGIN_X & 7) != 0
+    .FAIL "BOARD_ORIGIN_X debe ser multiplo de 8 (tiles de BG2)"
+.ENDIF
+.IF (BOARD_ORIGIN_Y & 7) != 0
+    .FAIL "BOARD_ORIGIN_Y debe ser multiplo de 8 (tiles de BG2)"
+.ENDIF
+.IF BG2_SHADOW_SIZE != (BOARD_HEIGHT * BG2_MAP_WIDTH * 2)
+    .FAIL "BG2_SHADOW_SIZE no coincide con BOARD_HEIGHT x 32 x 2"
+.ENDIF
+.IF BG2_PIECE_TILES < PIECE_TYPE_COUNT
+    .FAIL "BG2_PIECE_TILES debe cubrir los tiles de las 7 piezas"
+.ENDIF
 
 
 ; ============================================================
@@ -133,96 +158,213 @@ BoardLockPiece_Loop:
 
 
 ; ============================================================
-; BoardDraw
+; BoardClearLines
 ;
-; Redibuja todos los bloques fijos en el buffer de OAM, a
-; partir del sprite BOARD_SPRITE_BASE, y esconde los sprites
-; que sobran (Y = 224). Solo hace falta llamarla cuando el
-; tablero cambia: los sprites se quedan en el buffer.
+; Borra las filas llenas y baja todo lo que estaba encima, en
+; una sola pasada de abajo hacia arriba:
 ;
-; Entradas de OamSetSprite ($02-$06) usadas como contadores:
-;   $02 = sprite actual, $03/$04 = X/Y en pixeles.
-; Usa $07 (columnas restantes) y $08 (filas restantes).
+;   r = w = ultima fila
+;   mientras r >= 0:
+;       si la fila r esta llena -> se salta (lineas + 1)
+;       si no -> se copia a la fila w, y w sube una fila
+;       r sube una fila
+;   las filas 0..w quedan vacias (las que "entran" arriba)
+;
+; Copiar una fila sobre si misma (r = w, sin lineas borradas
+; todavia) no cambia nada, asi que no se revisa ese caso.
+;
+; Salida: A (8 bits) = lineas borradas (0-4).
+; X y Y guardan los offsets de r y w (fila*10) en 16 bits; al
+; pasar de la fila 0 quedan negativos, por eso se usa BMI.
+; Usa $07 (contador de lineas). No llama a BoardRender: quien
+; llama redibuja cuando termina de cambiar el tablero.
 ; ============================================================
 
-BoardDraw:
+BoardClearLines:
     PHP
     AI16
     PHX
     PHY
 
     A8
-    LDA #BOARD_SPRITE_BASE
-    STA $02
+    STZ $07                         ; lineas borradas
+    LDX #((BOARD_HEIGHT - 1) * BOARD_WIDTH)  ; r = ultima fila
+    TXY                             ; w = r
 
-    LDY #$0000                      ; indice de celda
-    LDA #BOARD_ORIGIN_Y
-    STA $04
+BoardClearLines_Row:
+    ; Fila llena = ninguna de sus celdas vale 0.
+    .REPT BOARD_WIDTH INDEX COL
+    LDA.w BOARD+COL,X
+    BEQ BoardClearLines_Keep
+    .ENDR
+
+    INC $07                         ; fila llena: no se copia
+    BRA BoardClearLines_Next
+
+BoardClearLines_Keep:
+    .REPT BOARD_WIDTH INDEX COL
+    LDA.w BOARD+COL,X
+    STA.w BOARD+COL,Y
+    .ENDR
+
+    A16
+    TYA
+    SEC
+    SBC #BOARD_WIDTH                ; w = fila de arriba
+    TAY
+    A8
+
+BoardClearLines_Next:
+    A16
+    TXA
+    SEC
+    SBC #BOARD_WIDTH                ; r = fila de arriba
+    TAX                             ; N = 1 si ya se paso de la fila 0
+    A8                              ; (SEP no toca N)
+    BMI BoardClearLines_Fill
+    JMP BoardClearLines_Row         ; muy lejos para un BPL
+
+BoardClearLines_Fill:
+    ; Vaciar las filas 0..w: son (w + 1) * 10 = Y + 10 bytes.
+    A16
+    TYA
+    CLC
+    ADC #BOARD_WIDTH
+    TAX                             ; Z = 1 si no hay nada que vaciar
+    A8
+    BEQ BoardClearLines_Done
+
+BoardClearLines_FillLoop:
+    DEX
+    STZ.w BOARD,X                   ; STZ no toca las banderas:
+    BNE BoardClearLines_FillLoop    ; Z viene del DEX
+
+BoardClearLines_Done:
+    LDA $07
+
+    PLY
+    PLX
+    PLP
+    RTS
+
+
+
+; ============================================================
+; BoardRender
+;
+; Redibuja todos los bloques fijos en BG2_SHADOW (el espejo del
+; tilemap de BG2) a partir de BOARD, y marca BG2_DIRTY para que
+; el siguiente NMI lo mande a VRAM (Bg2Flush). Solo hace falta
+; llamarla cuando el tablero cambia.
+;
+; Celda (fila, col) -> entrada (fila*32 + BOARD_TILE_X + col)
+; del shadow. Vacia = $0000 (tile 0, transparente); ocupada =
+; BG2_BLOCK_ATTR | (PieceTileTable[valor-1] + 1).
+;
+; BG2_DIRTY se apaga al empezar y se prende al terminar: si el
+; NMI cae a la mitad, no manda un tilemap a medio construir.
+;
+; Usa $07 (columnas restantes) y $08 (filas restantes).
+; ============================================================
+
+BoardRender:
+    PHP
+    AI16
+    PHX
+    PHY
+
+    A8
+    STZ BG2_DIRTY
+
+    LDX #$0000                      ; indice de celda en BOARD
+    LDY #(BOARD_TILE_X * 2)         ; offset en bytes en el shadow
     LDA #BOARD_HEIGHT
     STA $08
 
-BoardDraw_Row:
-    LDA #BOARD_ORIGIN_X
-    STA $03
+BoardRender_Row:
     LDA #BOARD_WIDTH
     STA $07
 
-BoardDraw_Col:
-    LDA $02
-    CMP #OAM_SPRITE_COUNT
-    BCS BoardDraw_Next              ; ya no quedan sprites libres
-
-    LDA.w BOARD,Y
-    BEQ BoardDraw_Next              ; celda vacia
+BoardRender_Col:
+    LDA.w BOARD,X
+    BEQ BoardRender_Empty
 
     DEC A                           ; valor - 1 = tipo de pieza
+    PHX
     A16
     AND #$00FF
     TAX
+    LDA.w PieceTileTable,X          ; byte alto = basura, se descarta
+    AND #$00FF
+    INC A                           ; tile 0 de BG2 = vacio
+    ORA #BG2_BLOCK_ATTR
+    PLX
+    BRA BoardRender_Store
+
+BoardRender_Empty:
+    A16
+    LDA #$0000
+
+BoardRender_Store:
+    STA.w BG2_SHADOW,Y
     A8
-    LDA.w PieceTileTable,X
-    STA $05
-    LDA #OBJ_PRIO_3
-    STA $06
-    JSR OamSetSprite
-    INC $02
-
-BoardDraw_Next:
+    INX
     INY
-    LDA $03
-    CLC
-    ADC #$08
-    STA $03
+    INY
     DEC $07
-    BNE BoardDraw_Col
+    BNE BoardRender_Col
 
-    LDA $04
+    ; Saltar las columnas del mapa fuera del tablero hasta el
+    ; inicio de la siguiente fila (se quedan siempre en 0).
+    A16
+    TYA
     CLC
-    ADC #$08
-    STA $04
+    ADC #((BG2_MAP_WIDTH - BOARD_WIDTH) * 2)
+    TAY
+    A8
     DEC $08
-    BNE BoardDraw_Row
+    BNE BoardRender_Row
 
-    ; --------------------------------------------------------
-    ; Esconder los sprites que no se usaron (igual que
-    ; OamBufferInit: Y = 224, fuera de la pantalla).
-    ; --------------------------------------------------------
-    STZ $03
-    LDA #$E0
-    STA $04
-    STZ $05
-    STZ $06
+    LDA #$01
+    STA BG2_DIRTY
 
-BoardDraw_Hide:
-    LDA $02
-    CMP #OAM_SPRITE_COUNT
-    BCS BoardDraw_Done
-    JSR OamSetSprite
-    INC $02
-    BRA BoardDraw_Hide
-
-BoardDraw_Done:
     PLY
     PLX
+    PLP
+    RTS
+
+
+; ============================================================
+; Bg2Flush
+;
+; Manda BG2_SHADOW al tilemap de BG2 por DMA (canal 0, el del
+; NMI), a partir de la fila BOARD_TILE_Y del mapa. Solo se
+; llama desde el NMI (core/nmi.asm), durante el V-Blank.
+; Preserva P. Modifica A.
+; ============================================================
+
+Bg2Flush:
+    PHP
+    A8
+    LDA #$80
+    STA VMAIN                       ; incrementar tras el byte alto
+
+    A16
+    LDA #(VRAM_BG2_MAP + BOARD_TILE_Y * BG2_MAP_WIDTH)
+    STA VMADDL                      ; 16 bits: VMADDL/VMADDH
+    LDA #BG2_SHADOW
+    STA A1T0L
+    LDA #BG2_SHADOW_SIZE
+    STA DAS0L
+
+    A8
+    LDA #$00
+    STA A1B0                        ; banco 0 (WRAM baja)
+    LDA #$01
+    STA DMAP0                       ; modo 1: $2118/$2119 alternados
+    LDA #(VMDATAL & $FF)
+    STA BBAD0
+    LDA #$01
+    STA MDMAEN                      ; disparar canal 0
     PLP
     RTS

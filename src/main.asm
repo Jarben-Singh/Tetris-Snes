@@ -199,6 +199,18 @@ ClearCGRAMLoop:
     JSR LoadBackgroundTetris1
 
     ; --------------------------------------------------------
+    ; Bloques fijos del tablero en BG2 (tiles de las piezas,
+    ; paleta 1 de BG y registros de la capa). Ver engine/ppu.asm.
+    ; --------------------------------------------------------
+    JSR LoadBoardLayer
+
+    ; BG12NBA guarda la base de tiles de BG1 (nibble bajo) y de
+    ; BG2 (nibble alto) en el mismo registro: se escribe una sola
+    ; vez, con los dos, para que una capa no borre a la otra.
+    LDA #BG12NBA_VALUE
+    STA BG12NBA
+
+    ; --------------------------------------------------------
     ; OBSEL: tamaño de sprite = 8x8 (chico) / 16x16 (grande).
     ; Como ahora TODOS nuestros diseños son de 8x8, vamos a usar
     ; siempre el tamaño "chico" (size bit = 0 en OAM), así que
@@ -232,8 +244,8 @@ ClearCGRAMLoop:
     LDA #$01
     STA $2105           ; BGMODE = modo 1
 
-    LDA #$11
-    STA $212C           ; TM: bit4 = capa OBJ, bit0 = capa BG1
+    LDA #$13
+    STA $212C           ; TM: bit4 = OBJ, bit1 = BG2 (bloques fijos), bit0 = BG1
 
     ; --------------------------------------------------------
     ; Encender pantalla con brillo máximo

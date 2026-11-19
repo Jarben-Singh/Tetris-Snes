@@ -201,9 +201,10 @@ ActivePieceSpawn:
     JSR ActivePieceFits
     BCS ActivePieceSpawn_Done
 
-    ; TODO(states.asm): aqui va el game over.
+    ; TODO(states.asm): aqui va el game over (y reiniciar
+    ; LINES_TOTAL / puntaje para la nueva partida).
     JSR BoardClear
-    JSR BoardDraw
+    JSR BoardRender
 
 ActivePieceSpawn_Done:
     PLP
@@ -307,8 +308,9 @@ ActivePieceUpdate_Done:
 ; cuando GravityShouldFall (engine/timing.asm) dice que toca.
 ;
 ; Si no puede bajar (toco el suelo o una pieza fija), la pieza
-; se fija en el tablero, se redibujan los bloques fijos y sale
-; la siguiente pieza.
+; se fija en el tablero, se borran las filas llenas (bajando lo
+; de arriba), se redibujan los bloques fijos y sale la
+; siguiente pieza.
 ; ============================================================
 
 ActivePieceApplyGravity:
@@ -321,7 +323,18 @@ ActivePieceApplyGravity:
     BCS ActivePieceApplyGravity_Done
 
     JSR BoardLockPiece
-    JSR BoardDraw
+    JSR BoardClearLines         ; A = lineas borradas (0-4)
+
+    ; Contadores para score.asm (TODO: puntaje por nivel).
+    STA LINES_CLEARED_LAST
+    A16
+    AND #$00FF                  ; el byte alto de A es basura
+    CLC
+    ADC LINES_TOTAL
+    STA LINES_TOTAL
+    A8
+
+    JSR BoardRender
     JSR ActivePieceSpawn
 
 ActivePieceApplyGravity_Done:

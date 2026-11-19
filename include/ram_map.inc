@@ -16,7 +16,7 @@
 ;   $10-$1F   estado de la pieza activa        -> Nicolas
 ;   $20-$3F   input y temporizacion            -> Manuel
 ;   $40-$5F   puntaje, nivel, lineas           -> Nicolas
-;   $0100+    buffers grandes (tablero, OAM)
+;   $0100+    buffers grandes (tablero, OAM, tilemap de BG2)
 ; ============================================================
 
 
@@ -60,6 +60,16 @@
 .DEFINE PIECE_BAG       $32   ; 7 bytes: bolsa con los tipos 0-6 revueltos
 .DEFINE BAG_INDEX       $39   ; siguiente posicion a repartir (0-6)
 
+; ---------- $3A : tablero en BG2 ----------
+.DEFINE BG2_DIRTY       $3A   ; 1 = hay que mandar BG2_SHADOW a VRAM
+
+; ---------- $40-$5F : puntaje, nivel, lineas ----------
+; Los llena ActivePieceApplyGravity (game/piece.asm) con el
+; resultado de BoardClearLines; score.asm los usara para el
+; puntaje y el nivel.
+.DEFINE LINES_CLEARED_LAST $40   ; lineas borradas por la ultima pieza (0-4)
+.DEFINE LINES_TOTAL        $41   ; 16 bits: lineas borradas en la partida
+
 ; ---------- Tablero (game/board.asm) ----------
 ; 10 x 20 celdas, una por byte, fila por fila:
 ;   indice = fila * 10 + columna
@@ -74,3 +84,12 @@
 .DEFINE OAM_BUFFER      $0400   ; 512 bytes: $0400-$05FF
 .DEFINE OAM_BUFFER_HI   $0600   ; 32 bytes:  $0600-$061F
 .DEFINE OAM_BUFFER_SIZE 544
+
+; ---------- Buffer espejo del tilemap de BG2 ----------
+; Los bloques fijos se dibujan como tiles de BG2, no como
+; sprites (la SNES solo tiene 128). Mismo patron que la OAM:
+; BoardRender (game/board.asm) escribe aqui y el NMI lo manda.
+; Son las 20 filas del tablero con el ancho completo del mapa
+; (32 entradas de 2 bytes), para mandarlo en un solo DMA.
+.DEFINE BG2_SHADOW      $0700   ; 1280 bytes: $0700-$0BFF
+.DEFINE BG2_SHADOW_SIZE 1280    ; 20 filas x 32 entradas x 2 bytes

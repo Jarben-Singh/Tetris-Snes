@@ -63,10 +63,9 @@ LoadBackgroundTetris1:
     ;        bits 1-0 = tamano (00 = 32x32 tiles)
     LDA #((VRAM_BG1_MAP >> 8) & $FC)
     STA BG1SC
-    ; BG12NBA: nibble bajo = base de tiles de BG1 en unidades
-    ;          de $1000 words (el nibble alto es BG2)
-    LDA #(VRAM_BG1_TILES >> 12)
-    STA BG12NBA
+    ; BG12NBA (base de tiles) NO se escribe aqui: comparte
+    ; registro con BG2 y main.asm lo escribe una sola vez con
+    ; BG12NBA_VALUE (vram_map.inc).
 
     ; Scroll: registros de escritura doble (byte bajo, luego alto).
     ; La PPU empieza a dibujar en la linea 1 del fondo, asi que
@@ -78,6 +77,64 @@ LoadBackgroundTetris1:
     STA BG1VOFS
     LDA #$03
     STA BG1VOFS
+
+    PLP
+    RTS
+
+; ------------------------------------------------------------
+; LoadBoardLayer - capa de los bloques fijos del tablero en BG2
+;   Tiles   -> VRAM_BG2_TILES + 1 tile (los BG2_PIECE_TILES
+;              primeros tiles de las piezas; el tile 0 se queda
+;              en ceros = transparente, la VRAM ya se limpio)
+;   Paleta  -> CGRAM_BG_PAL1 (copia de la paleta de sprites)
+;   Tilemap -> VRAM_BG2_MAP, ya en ceros = todo vacio. Durante
+;              el juego lo actualiza el NMI desde BG2_SHADOW.
+; El formato 4bpp de sprites y de fondos es el mismo, asi que
+; se reusan los tiles de TetrisPieces sin convertir nada.
+; Preserva P. Modifica A y el scratch DMA_*.
+; ------------------------------------------------------------
+LoadBoardLayer:
+    PHP
+
+    ; --- Tiles (a partir del tile 1 = 16 words) ---
+    A16
+    LDA #TetrisPieces_til
+    STA DMA_SRC
+    LDA #(BG2_PIECE_TILES * 32)
+    STA DMA_SIZE
+    LDA #(VRAM_BG2_TILES + 16)
+    STA DMA_DEST
+    A8
+    LDA #:TetrisPieces_til
+    STA DMA_BANK
+    JSR DmaToVram
+
+    ; --- Paleta ---
+    A16
+    LDA #TetrisPieces_pal
+    STA DMA_SRC
+    LDA #(TetrisPieces_palend - TetrisPieces_pal)
+    STA DMA_SIZE
+    LDA #CGRAM_BG_PAL1
+    STA DMA_DEST
+    A8
+    LDA #:TetrisPieces_pal
+    STA DMA_BANK
+    JSR DmaToCgram
+
+    ; --- Registros de BG2 ---
+    LDA #((VRAM_BG2_MAP >> 8) & $FC)
+    STA BG2SC
+
+    ; Mismo scroll que BG1 (VOFS = -1). Si no, los bloques fijos
+    ; quedan una linea mas abajo que la pieza activa (sprites).
+    LDA #$00
+    STA BG2HOFS
+    STA BG2HOFS
+    LDA #$FF
+    STA BG2VOFS
+    LDA #$03
+    STA BG2VOFS
 
     PLP
     RTS
