@@ -691,3 +691,99 @@ DrawActivePieceLoop:
 
 
     RTS
+
+; ============================================================
+; DrawNextPiece
+;
+; Dibuja la pieza NEXT_PIECE_TYPE (rotacion 0) centrada en el
+; cuadro "NEXT" del HUD, arriba a la derecha.
+;
+; El interior negro del cuadro en el fondo
+; (assets/Background1-Tetris.png) va de x=185..246 e
+; y=36..87, con el centro en (216, 62). Como cada pieza tiene
+; una caja distinta en la rotacion 0, NextPieceOriginX/Y dan,
+; por tipo, el pixel de la celda (0,0) que la deja centrada.
+;
+; Usa los sprites 4-7 (los 0-3 son de la pieza activa).
+; Preserva P, X y Y.
+; ============================================================
+
+.DEFINE NEXT_PIECE_SPRITE_BASE 4
+
+DrawNextPiece:
+    PHP
+    AI16
+    PHX
+    PHY
+
+    LDA NEXT_PIECE_TYPE
+    AND #$00FF
+    TAY                     ; Y = tipo (para las tablas por tipo)
+
+    ASL
+    ASL
+    ASL
+    ASL
+    ASL                     ; tipo * 32 = rotacion 0 de la pieza
+    TAX
+
+    A8
+
+    LDA.w NextPieceOriginX,Y
+    STA $00                 ; X en pixeles de la celda (0,0)
+    LDA.w NextPieceOriginY,Y
+    STA $01                 ; Y en pixeles de la celda (0,0)
+
+    LDA.w PieceTileTable,Y
+    STA $05                 ; tile (OamSetSprite no lo toca)
+    LDA #OBJ_PRIO_3
+    STA $06                 ; atributos
+
+    LDA #$04
+    STA $07                 ; quedan 4 bloques
+    LDA #NEXT_PIECE_SPRITE_BASE
+    STA $08                 ; sprite actual
+
+DrawNextPieceLoop:
+    LDA.w TetrominoRotations,X     ; dx
+    ASL
+    ASL
+    ASL                            ; dx * 8
+    CLC
+    ADC $00
+    STA $03
+
+    LDA.w TetrominoRotations+1,X   ; dy
+    ASL
+    ASL
+    ASL                            ; dy * 8
+    CLC
+    ADC $01
+    STA $04
+
+    LDA $08
+    STA $02
+
+    JSR OamSetSprite
+
+    INX
+    INX
+    INC $08
+    DEC $07
+    BNE DrawNextPieceLoop
+
+    PLY
+    PLX
+    PLP
+    RTS
+
+
+; Origen (celda 0,0) en pixeles para centrar cada pieza en el
+; cuadro NEXT. Orden: I, O, T, S, Z, J, L.
+;   I    : 4x1 celdas en (0..3, 1)    -> X=216-16, Y=62-12
+;   O    : 2x2 celdas en (1..2, 0..1) -> X=216-16, Y=62-8
+;   resto: 3x2 celdas en (0..2, 0..1) -> X=216-12, Y=62-8
+NextPieceOriginX:
+.db 200, 200, 204, 204, 204, 204, 204
+NextPieceOriginY:
+.db 50, 54, 54, 54, 54, 54, 54

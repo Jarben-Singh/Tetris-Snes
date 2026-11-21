@@ -294,6 +294,7 @@ MainLoop:
 MainLoop_NoFall:
     JSR ActivePieceUpdate
     JSR DrawActivePiece
+    JSR DrawNextPiece         ; cuadro NEXT del HUD (preserva P)
     SEP #$20            ; DrawActivePiece no restaura P:
     .ACCU 8             ; deja A en 8 bits y X/Y en 16
     REP #$10
