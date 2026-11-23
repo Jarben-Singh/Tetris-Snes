@@ -7,8 +7,8 @@
 ;   STATE_TITLE    pantalla de inicio: solo espera START
 ;   STATE_PLAYING  partida en curso (piezas, gravedad, HUD)
 ;
-; TODO: pantalla de game over. Por ahora, al perder, la partida
-; nueva empieza de inmediato (ActivePieceSpawn en piece.asm).
+; Al perder (ActivePieceSpawn en piece.asm) GameOver regresa a
+; STATE_TITLE.
 ; ============================================================
 
 .DEFINE STATE_TITLE   0
@@ -62,6 +62,36 @@ StartGame:
     JSR ActivePieceInit
 
     LDA #STATE_PLAYING
+    STA GAME_STATE
+
+    PLP
+    RTS
+
+
+; ============================================================
+; GameOver
+;
+; La pieza nueva ya no cabe: regresa a la pantalla de inicio.
+;   - vacia el tablero (BG2 queda limpio para la siguiente
+;     partida; en el titulo BG2 esta apagado)
+;   - esconde todos los sprites (pieza, NEXT y contadores)
+;   - BG1 muestra la pantalla de inicio (ShowTitleScreen)
+; El puntaje se queda como estaba hasta que StartGame llama a
+; ScoreReset. TOP_SCORE ya se guardo en la SRAM al superarse
+; (ScoreAddLines).
+; Preserva P.
+; ============================================================
+
+GameOver:
+    PHP
+    A8
+
+    JSR BoardClear
+    JSR BoardRender
+    JSR OamBufferInit           ; todos los sprites fuera de pantalla
+    JSR ShowTitleScreen
+
+    LDA #STATE_TITLE
     STA GAME_STATE
 
     PLP

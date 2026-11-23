@@ -300,6 +300,12 @@ MainLoop_Playing:
     CMP #$00                  ; el PLP de la funcion no deja la bandera
     BEQ MainLoop_NoFall        ; Z lista: hay que releerla aqui
     JSR ActivePieceApplyGravity
+    ; Si hubo game over, GameOver ya paso al titulo y escondio
+    ; los sprites: no volver a dibujar la pieza ni el HUD.
+    LDA GAME_STATE
+    CMP #STATE_PLAYING
+    BEQ MainLoop_NoFall
+    JMP MainLoop
 MainLoop_NoFall:
     JSR ActivePieceUpdate
     JSR DrawActivePiece
