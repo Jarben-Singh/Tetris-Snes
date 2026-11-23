@@ -63,12 +63,23 @@
 ; ---------- $3A : tablero en BG2 ----------
 .DEFINE BG2_DIRTY       $3A   ; 1 = hay que mandar BG2_SHADOW a VRAM
 
+; ---------- $3B : maquina de estados (game/states.asm) ----------
+.DEFINE GAME_STATE      $3B   ; STATE_TITLE o STATE_PLAYING
+
 ; ---------- $40-$5F : puntaje, nivel, lineas ----------
 ; Los llena ActivePieceApplyGravity (game/piece.asm) con el
 ; resultado de BoardClearLines; score.asm los usara para el
 ; puntaje y el nivel.
 .DEFINE LINES_CLEARED_LAST $40   ; lineas borradas por la ultima pieza (0-4)
 .DEFINE LINES_TOTAL        $41   ; 16 bits: lineas borradas en la partida
+.DEFINE LEVEL              $43   ; nivel actual = LINES_TOTAL / 10 (0-99)
+; Puntaje en BCD (2 digitos decimales por byte), little-endian:
+; $44 = digitos 1-2 (unidades), $46 = digitos 5-6. Max 999999.
+.DEFINE SCORE              $44   ; 3 bytes: $44-$46
+; Mejor puntaje (mismo formato BCD que SCORE). No se reinicia en
+; el game over. Se carga de y se guarda en la SRAM con bateria
+; (engine/sram.asm), asi que sobrevive al apagar la consola.
+.DEFINE TOP_SCORE          $47   ; 3 bytes: $47-$49
 
 ; ---------- Tablero (game/board.asm) ----------
 ; 10 x 20 celdas, una por byte, fila por fila:

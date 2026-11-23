@@ -28,11 +28,10 @@
 ; RNG_SEED_CONST. Si el resultado fuera 0 (xorshift no puede
 ; arrancar en 0), se usa la constante sola, que nunca es 0.
 ;
-; Hoy se llama una vez en Start, porque todavia no hay pantalla
-; de titulo. Esta pensada para moverse al futuro handler de
-; START en esa pantalla: ahi la semilla dependeria de cuanto
-; tardo el jugador en presionar START, que es mucho menos
-; predecible que un numero de frame fijo al encender.
+; La llama StartGame (game/states.asm) al presionar START en la
+; pantalla de inicio: la semilla depende de cuanto tardo el
+; jugador en presionar START, que es mucho menos predecible que
+; un numero de frame fijo al encender.
 ; ------------------------------------------------------------
 RandomSeed:
     PHP

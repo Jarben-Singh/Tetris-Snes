@@ -52,6 +52,10 @@ Start:
     ; --------------------------------------------------------
     JSR ClearWRAM
 
+    ; Record guardado en la SRAM con bateria (engine/sram.asm).
+    ; Despues de ClearWRAM, que deja TOP_SCORE en 0.
+    JSR SramLoadTopScore
+
     ; --------------------------------------------------------
     ; Apagar la pantalla mientras inicializamos
     ; --------------------------------------------------------
@@ -204,11 +208,14 @@ ClearCGRAMLoop:
     ; --------------------------------------------------------
     JSR LoadBoardLayer
 
-    ; BG12NBA guarda la base de tiles de BG1 (nibble bajo) y de
-    ; BG2 (nibble alto) en el mismo registro: se escribe una sola
-    ; vez, con los dos, para que una capa no borre a la otra.
-    LDA #BG12NBA_VALUE
-    STA BG12NBA
+    ; Digitos 0-9 del HUD (tiles de sprite). Despues del DMA de
+    ; TetrisPieces, que llena todos los tiles de OBJ.
+    JSR LoadHudDigits
+
+    ; Pantalla de inicio (tiles, tilemap y paleta propios). El
+    ; juego arranca mostrandola; START pasa al fondo del juego
+    ; (game/states.asm).
+    JSR LoadTitleScreen
 
     ; --------------------------------------------------------
     ; OBSEL: tamaño de sprite = 8x8 (chico) / 16x16 (grande).
@@ -244,8 +251,9 @@ ClearCGRAMLoop:
     LDA #$01
     STA $2105           ; BGMODE = modo 1
 
-    LDA #$13
-    STA $212C           ; TM: bit4 = OBJ, bit1 = BG2 (bloques fijos), bit0 = BG1
+    ; BG1SC, BG12NBA y TM (capas visibles) los pone
+    ; ShowTitleScreen: se empieza en la pantalla de inicio.
+    JSR ShowTitleScreen
 
     ; --------------------------------------------------------
     ; Encender pantalla con brillo máximo
@@ -259,18 +267,11 @@ ClearCGRAMLoop:
     JSR InputInit
     JSR TimingInit
 
-    ; TODO(states.asm): cuando exista la pantalla de titulo, esta
-    ; semilla se mueve al handler de START ahi. Por ahora corre
-    ; aqui una sola vez, con FRAME_COUNTER recien puesto en 0
-    ; (TimingInit), asi que da la misma semilla en cada encendido;
-    ; vuelve a ser impredecible desde la primera bolsa cuando haya
-    ; pantalla de titulo de por medio.
-    JSR RandomSeed
-
-    ; --------------------------------------------------------
-    ; Logica de piezas
-    ; --------------------------------------------------------
-    JSR ActivePieceInit
+    ; La semilla del generador y la primera pieza ya no van
+    ; aqui: las arranca StartGame (game/states.asm) al presionar
+    ; START en la pantalla de inicio.
+    LDA #STATE_TITLE
+    STA GAME_STATE
 
     ; Habilitar NMI (bit7) + lectura automatica del control (bit0)
     LDA #$81
@@ -287,6 +288,14 @@ ClearCGRAMLoop:
 MainLoop:
     JSR WaitFrame             ; esperar al siguiente frame
     JSR RandomAdvance         ; mantener el generador revolviendose
+
+    LDA GAME_STATE
+    CMP #STATE_PLAYING
+    BEQ MainLoop_Playing
+    JSR TitleUpdate           ; pantalla de inicio: esperar START
+    JMP MainLoop
+
+MainLoop_Playing:
     JSR GravityShouldFall     ; A (8 bits) = 1 si toca bajar este frame
     CMP #$00                  ; el PLP de la funcion no deja la bandera
     BEQ MainLoop_NoFall        ; Z lista: hay que releerla aqui
@@ -295,6 +304,10 @@ MainLoop_NoFall:
     JSR ActivePieceUpdate
     JSR DrawActivePiece
     JSR DrawNextPiece         ; cuadro NEXT del HUD (preserva P)
+    JSR DrawLinesCounter      ; cuadro LINES del HUD (preserva P)
+    JSR DrawLevelCounter      ; cuadro LEVEL del HUD (preserva P)
+    JSR DrawScoreCounter      ; cuadro SCORE del HUD (preserva P)
+    JSR DrawTopScoreCounter   ; cuadro TOP del HUD (preserva P)
     SEP #$20            ; DrawActivePiece no restaura P:
     .ACCU 8             ; deja A en 8 bits y X/Y en 16
     REP #$10
@@ -328,6 +341,7 @@ PieceTileTable:
 
 .INCLUDE "engine/dma.asm"
 .INCLUDE "engine/ppu.asm"
+.INCLUDE "engine/sram.asm"
 
 
 ; ------------------------------------------------------------
@@ -337,6 +351,9 @@ PieceTileTable:
 .INCLUDE "data/tables.asm"
 .INCLUDE "game/piece.asm"
 .INCLUDE "game/board.asm"
+.INCLUDE "game/score.asm"
+.INCLUDE "game/states.asm"
+.INCLUDE "data/digits.asm"
 
 
 .ENDS
@@ -352,5 +369,6 @@ PieceTileTable:
 
 .INCLUDE "data/TetrisPieces_data.as"
 .INCLUDE "data/BackgroundTetris1_data.as"
+.INCLUDE "data/TitleStart_data.as"
 
 .ENDS

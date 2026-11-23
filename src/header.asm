@@ -18,9 +18,9 @@
     SLOWROM
     LOROM
 
-    CARTRIDGETYPE $00
+    CARTRIDGETYPE $02   ; ROM + RAM + bateria (Top Score, engine/sram.asm)
     ROMSIZE $08
-    SRAMSIZE $00
+    SRAMSIZE $01        ; 2 KB de SRAM (1 KB << 1)
     COUNTRY $01
     LICENSEECODE $00
     VERSION $00

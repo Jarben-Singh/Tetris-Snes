@@ -180,8 +180,8 @@ BagDraw_HaveBag:
 ; posicion de inicio.
 ;
 ; Si no cabe, el tablero se lleno (game over). Mientras no
-; exista la maquina de estados (states.asm) se vacia el tablero
-; y se sigue jugando.
+; exista la maquina de estados (states.asm) se vacia el tablero,
+; se reinician lineas y nivel (ScoreReset) y se sigue jugando.
 ; ============================================================
 
 ActivePieceSpawn:
@@ -201,10 +201,12 @@ ActivePieceSpawn:
     JSR ActivePieceFits
     BCS ActivePieceSpawn_Done
 
-    ; TODO(states.asm): aqui va el game over (y reiniciar
-    ; LINES_TOTAL / puntaje para la nueva partida).
+    ; Game over. TODO(states.asm): aqui va la pantalla de game
+    ; over; por ahora la partida nueva empieza de inmediato.
+    ; TOP_SCORE no se toca: ScoreAddLines ya lo fue actualizando.
     JSR BoardClear
     JSR BoardRender
+    JSR ScoreReset              ; lineas y nivel de vuelta a 0
 
 ActivePieceSpawn_Done:
     PLP
@@ -325,7 +327,7 @@ ActivePieceApplyGravity:
     JSR BoardLockPiece
     JSR BoardClearLines         ; A = lineas borradas (0-4)
 
-    ; Contadores para score.asm (TODO: puntaje por nivel).
+    ; Contadores de score.asm.
     STA LINES_CLEARED_LAST
     A16
     AND #$00FF                  ; el byte alto de A es basura
@@ -333,6 +335,11 @@ ActivePieceApplyGravity:
     ADC LINES_TOTAL
     STA LINES_TOTAL
     A8
+    ; El puntaje usa el nivel en que se borraron las lineas, asi
+    ; que va ANTES de subir de nivel.
+    LDA LINES_CLEARED_LAST
+    JSR ScoreAddLines
+    JSR ScoreUpdateLevel        ; cada 10 lineas sube un nivel
 
     JSR BoardRender
     JSR ActivePieceSpawn

@@ -48,8 +48,14 @@ TimingSetLevel:
     BCC TimingLevelOK
     LDA #GRAVITY_MAX_LEVEL  ; topar en el nivel maximo
 TimingLevelOK:
-    AND #$FF
+    ; Con A en 8 bits y X en 16, TAX copia los 16 bits de C:
+    ; el byte alto (B) llega con lo que haya dejado el codigo
+    ; anterior y X terminaria apuntando fuera de la tabla. Hay
+    ; que limpiarlo en 16 bits antes de transferir.
+    A16
+    AND #$00FF
     TAX
+    A8
     LDA.w GravityTable,X
     STA GRAVITY_SPEED
     PLX

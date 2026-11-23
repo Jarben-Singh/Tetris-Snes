@@ -52,6 +52,12 @@ GFX_FLAGS := -M snes -B 4 -R
 BG1_PNG := assets/Background1-Tetris.png
 BG1_OUT := $(GFX_DIR)/background_tetris1
 
+# Pantalla de inicio: tambien en BG1, pero con sus propios tiles,
+# tilemap y la paleta 2 de BG (-P 2), asi convive en VRAM con el
+# fondo del juego (ver vram_map.inc).
+TITLE_PNG := assets/Tetris-Start.png
+TITLE_OUT := $(GFX_DIR)/title_start
+
 # Si cambia un binario incluido con .incbin hay que reensamblar.
 SOURCES += $(wildcard $(GFX_DIR)/*.pal) \
            $(wildcard $(GFX_DIR)/*.tiles) \
@@ -70,6 +76,8 @@ $(GFX_DIR):
 gfx: | $(GFX_DIR)
 	@echo "[GFX ] $(BG1_PNG)"
 	@$(SFC) -i $(BG1_PNG) -p $(BG1_OUT).pal -t $(BG1_OUT).tiles -m $(BG1_OUT).map $(GFX_FLAGS)
+	@echo "[GFX ] $(TITLE_PNG)"
+	@$(SFC) -i $(TITLE_PNG) -p $(TITLE_OUT).pal -t $(TITLE_OUT).tiles -m $(TITLE_OUT).map $(GFX_FLAGS) -P 2
 	@echo "[OK  ] graficos en $(GFX_DIR)/"
 
 $(OBJ): $(SOURCES) | $(BUILD_DIR)
