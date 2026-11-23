@@ -179,9 +179,8 @@ BagDraw_HaveBag:
 ; Saca la siguiente pieza arriba del tablero: rotacion 0, en la
 ; posicion de inicio.
 ;
-; Si no cabe, el tablero se lleno (game over). Mientras no
-; exista la maquina de estados (states.asm) se vacia el tablero,
-; se reinician lineas y nivel (ScoreReset) y se sigue jugando.
+; Si no cabe, el tablero se lleno (game over): GameOver
+; (states.asm) regresa a la pantalla de inicio.
 ; ============================================================
 
 ActivePieceSpawn:
@@ -201,12 +200,8 @@ ActivePieceSpawn:
     JSR ActivePieceFits
     BCS ActivePieceSpawn_Done
 
-    ; Game over. TODO(states.asm): aqui va la pantalla de game
-    ; over; por ahora la partida nueva empieza de inmediato.
-    ; TOP_SCORE no se toca: ScoreAddLines ya lo fue actualizando.
-    JSR BoardClear
-    JSR BoardRender
-    JSR ScoreReset              ; lineas y nivel de vuelta a 0
+    ; Game over: de vuelta a la pantalla de inicio (states.asm).
+    JSR GameOver
 
 ActivePieceSpawn_Done:
     PLP

@@ -66,6 +66,9 @@
 ; ---------- $3B : maquina de estados (game/states.asm) ----------
 .DEFINE GAME_STATE      $3B   ; STATE_TITLE o STATE_PLAYING
 
+; ---------- $3C : soft drop (engine/timing.asm) ----------
+.DEFINE SOFT_DROP_TIMER $3C   ; frames que faltan para la proxima caida con ABAJO
+
 ; ---------- $40-$5F : puntaje, nivel, lineas ----------
 ; Los llena ActivePieceApplyGravity (game/piece.asm) con el
 ; resultado de BoardClearLines; score.asm los usara para el

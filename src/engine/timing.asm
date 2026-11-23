@@ -94,14 +94,18 @@ TimingGravityFire:
 ; GravityShouldFall - decide si la pieza debe bajar este frame
 ; ------------------------------------------------------------
 ; Combina la gravedad normal (TimingTickGravity) con el soft
-; drop: si el jugador mantiene ABAJO, la pieza cae cada frame
-; sin esperar al temporizador normal.
+; drop: si el jugador mantiene ABAJO, la pieza cae una fila cada
+; SOFT_DROP_SPEED frames (la primera fila cae en cuanto se
+; presiona). Si la gravedad normal ya es mas rapida, manda ella.
 ;
 ; Devuelve en A (8 bits):
 ;   0 = no bajar,  1 = bajar
 ; ------------------------------------------------------------
+.DEFINE SOFT_DROP_SPEED 3   ; frames por fila con ABAJO (3 = 20 filas/seg)
+
 GravityShouldFall:
     PHP
+    A8
     JSR TimingTickGravity   ; A (8 bits) = resultado de la gravedad normal
     PHA                      ; guardarlo mientras revisamos el boton
 
@@ -109,12 +113,23 @@ GravityShouldFall:
     LDA PAD1_HELD
     AND #BTN_DOWN
     A8                       ; volver a 8 bits antes de tocar la pila
-    BEQ GravityShouldFall_UseTimer
+    BEQ GravityShouldFall_NotHeld
 
+    DEC SOFT_DROP_TIMER
+    BEQ GravityShouldFall_SoftFire
+    BPL GravityShouldFall_UseTimer   ; todavia no toca: usar la gravedad normal
+
+GravityShouldFall_SoftFire:
+    LDA #SOFT_DROP_SPEED
+    STA SOFT_DROP_TIMER     ; recargar el contador del soft drop
     PLA                      ; descartar el resultado del timer
-    LDA #$01                 ; ABAJO mantenido -> siempre cae
+    LDA #$01                 ; bajar una fila
     PLP
     RTS
+
+GravityShouldFall_NotHeld:
+    LDA #$01
+    STA SOFT_DROP_TIMER     ; al presionar ABAJO, la primera fila cae ya
 
 GravityShouldFall_UseTimer:
     PLA                      ; recuperar el resultado del timer normal
