@@ -68,6 +68,18 @@ Start:
     STA $4200           ; NMITIMEN - deshabilitar NMI por ahora
 
     ; --------------------------------------------------------
+    ; Pantallas de arranque, cada una con fundido a negro,
+    ; antes de la pantalla de inicio: creditos y luego el
+    ; agradecimiento a Alekséi Pázhitnov. Pisan VRAM y CGRAM,
+    ; por eso van ANTES de limpiarlas (game/splash.asm).
+    ; Salen en forced blank.
+    ; --------------------------------------------------------
+    JSR ShowCreditsScreen
+    JSR ShowThanksScreen
+    SEP #$20
+    .ACCU 8
+
+    ; --------------------------------------------------------
     ; Limpiar VRAM completa (evita basura al encender)
     ; VRAM son 64KB = 0x8000 words; cada STZ de 16 bits a
     ; $2118 escribe un word completo (low->$2118, high->$2119)
@@ -359,6 +371,7 @@ PieceTileTable:
 .INCLUDE "game/board.asm"
 .INCLUDE "game/score.asm"
 .INCLUDE "game/states.asm"
+.INCLUDE "game/splash.asm"
 .INCLUDE "data/digits.asm"
 
 
@@ -376,5 +389,15 @@ PieceTileTable:
 .INCLUDE "data/TetrisPieces_data.as"
 .INCLUDE "data/BackgroundTetris1_data.as"
 .INCLUDE "data/TitleStart_data.as"
+
+.ENDS
+
+; Pantallas de arranque (~21 KB): en su propio banco para
+; no llenar el banco 1.
+.BANK 2 SLOT 0
+.ORG 0
+.SECTION "SplashData"
+
+.INCLUDE "data/Splash_data.as"
 
 .ENDS
