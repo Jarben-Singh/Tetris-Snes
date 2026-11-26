@@ -17,11 +17,15 @@
 .DEFINE BGMODE      $2105   ; modo de fondo
 .DEFINE BG1SC       $2107   ; BG1: direccion y tamano del tilemap
 .DEFINE BG2SC       $2108   ; BG2: direccion y tamano del tilemap
+.DEFINE BG3SC       $2109   ; BG3: direccion y tamano del tilemap
 .DEFINE BG12NBA     $210B   ; BG1/BG2: direccion base de los tiles
+.DEFINE BG34NBA     $210C   ; BG3/BG4: direccion base de los tiles
 .DEFINE BG1HOFS     $210D   ; BG1: scroll horizontal (escritura doble)
 .DEFINE BG1VOFS     $210E   ; BG1: scroll vertical (escritura doble)
 .DEFINE BG2HOFS     $210F   ; BG2: scroll horizontal (escritura doble)
 .DEFINE BG2VOFS     $2110   ; BG2: scroll vertical (escritura doble)
+.DEFINE BG3HOFS     $2111   ; BG3: scroll horizontal (escritura doble)
+.DEFINE BG3VOFS     $2112   ; BG3: scroll vertical (escritura doble)
 .DEFINE VMAIN       $2115   ; control de incremento de VRAM
 .DEFINE VMADDL      $2116   ; direccion VRAM (low)
 .DEFINE VMADDH      $2117   ; direccion VRAM (high)

@@ -61,7 +61,9 @@ TITLE_OUT := $(GFX_DIR)/title_start
 # Si cambia un binario incluido con .incbin hay que reensamblar.
 SOURCES += $(wildcard $(GFX_DIR)/*.pal) \
            $(wildcard $(GFX_DIR)/*.tiles) \
-           $(wildcard $(GFX_DIR)/*.map)
+           $(wildcard $(GFX_DIR)/*.map) \
+           $(wildcard assets/thanks/*) \
+           $(wildcard assets/credits/*)
 
 .PHONY: all run clean rebuild gfx
 
