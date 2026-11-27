@@ -9,6 +9,8 @@
 *.map
 # ...excepto los tilemaps generados por SuperFamiconv (make gfx)
 !/assets/gfx/*.map
+!/assets/credits/*.map
+!/assets/thanks/*.map
 *.lst
 *.def
 *.tmp
